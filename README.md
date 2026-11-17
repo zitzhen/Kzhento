@@ -1,21 +1,23 @@
-# ZhenTo
+# Kzhento
 
-> An Ubuntu-based operating system crafted by ZIT Studio (ZIT 小圳工作室).
+> A Kubuntu-based operating system crafted by ZIT Studio (ZIT 小圳工作室), derived from [ZhenTo](https://github.com/zitzhen/zhenTo).
 
 [English](README.md) · [简体中文](README_zh-cn.md) · [繁體中文](README_zh-tw.md)
 
-ZhenTo is a customized Linux distribution derived from **Ubuntu 26.04.1 LTS "Resolute Raccoon"**. It rebrands the base desktop image, installs a small set of developer tools out of the box, and produces an **UEFI-only** live/install ISO that can be written straight to a USB drive.
+Kzhento is a customized Linux distribution based on **Kubuntu 26.04.1 LTS "Resolute Raccoon"**. This repository was copied from ZhenTo: its shell scripts rebrand the base desktop image, install a small set of developer tools out of the box, and produce an **UEFI-only** live/install ISO that can be written straight to a USB drive.
 
 The whole image is assembled by shell scripts — the old dependency on Cubic has been removed. Everything from unpacking the official ISO and patching it inside a `chroot`, to repacking a bootable image, is reproducible from this repository.
+
+> **Note on the inherited code:** the scripts themselves have not been modified. Defaults and runtime strings inside them (`BASE_ISO`, volume label, output filename, `/etc/os-release`, GRUB menu) still refer to ZhenTo/Ubuntu. Pass your own Kubuntu ISO through `BASE_ISO` when building.
 
 | | |
 |---|---|
 | **Current version** | 0.1.1 |
-| **Base image** | Ubuntu 26.04.1 Desktop (amd64) |
+| **Base image** | Kubuntu 26.04.1 Desktop (amd64) |
 | **Firmware** | UEFI only (legacy BIOS is not supported) |
 | **License** | [AGPL-3.0-only](LICENSE) |
-| **Homepage** | https://zitzhen.cn/ |
-| **Issues** | https://github.com/zitzhen/zhenTo/issues |
+| **Homepage** | https://github.com/zitzhen/Kzhento |
+| **Issues** | https://github.com/zitzhen/Kzhento/issues |
 
 ---
 
@@ -39,10 +41,10 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 
 ## Features
 
-- **Rebranded identity** — `/etc/os-release` and the GRUB boot menu both identify the system as ZhenTo.
+- **Rebranded identity** — `/etc/os-release` and the GRUB boot menu are the branding points for Kzhento (currently still populated with the inherited ZhenTo strings).
 - **UEFI-only image** — a single EFI system partition is appended to the ISO; boot entries are generated with `xorriso`.
 - **Developer tools preinstalled** — `curl`, `git`, `zsh`, and [patchsplit](https://github.com/zitzhen/patchsplit) (from the `ppa:zitzhen/patchsplit` PPA).
-- **ZhenTo Desktop Installer** — the `ubuntu-desktop-bootstrap` snap from [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) is seeded into the image. On a live system it is installed directly; inside the `chroot` a one-shot systemd unit finishes the installation on first boot.
+- **Kzhento Desktop Installer** — the `ubuntu-desktop-bootstrap` snap from [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) is seeded into the image. On a live system it is installed directly; inside the `chroot` a one-shot systemd unit finishes the installation on first boot.
 - **Layer-aware patching** — only the base squashfs layer of the default install source is modified. Language and enhanced-secureboot overlay layers are left untouched.
 - **Checksums and verification** — `md5sum.txt` is regenerated, and CI publishes MD5 and SHA256 files for every release.
 - **Automated CI** — pull requests are gated by lint/unit tests; tagged builds produce a draft GitHub Release with split, under-2 GB archives.
@@ -53,15 +55,15 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 .
 ├── build.sh                  # Main ISO build script (unpack → chroot → repack)
 ├── edit-grub/
-│   ├── grub.cfg              # ZhenTo GRUB menu
+│   ├── grub.cfg              # GRUB menu (Kzhento branding; inherited ZhenTo entries)
 │   └── replace-grub.sh       # Install the menu into a target grub.cfg (with backup)
 ├── edit-os-release/
-│   ├── os-release            # ZhenTo /etc/os-release branding
+│   ├── os-release            # /etc/os-release branding (Kzhento; inherited values)
 │   └── edit.sh               # Install the file into /etc/os-release
 ├── install-app/
 │   ├── ppa.list              # Extra PPAs to enable during the build
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh
-│   └── Installer.sh          # ZhenTo Desktop Installer (snap) setup
+│   └── Installer.sh          # Desktop Installer (snap) setup
 ├── scripts/
 │   └── download-release.*    # Download all assets of a GitHub release (sh / ps1 / cmd)
 ├── tests/                    # Four-layer smoke tests (see tests/README.md)
@@ -73,8 +75,8 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 ### Prerequisites
 
 - A Linux host running as **root** (`chroot` and mounts are required).
-- The following commands: `xorriso`, `unsquashfs`, `mksquashfs`, `rsync`, `dd`, `awk` (on Ubuntu: `sudo apt-get install xorriso squashfs-tools rsync`).
-- The Ubuntu 26.04.1 desktop base ISO, with layered squashfs and a `casper/install-sources.yaml` file.
+- The following commands: `xorriso`, `unsquashfs`, `mksquashfs`, `rsync`, `dd`, `awk` (on Ubuntu/Kubuntu: `sudo apt-get install xorriso squashfs-tools rsync`).
+- The Kubuntu 26.04.1 desktop base ISO, with layered squashfs and a `casper/install-sources.yaml` file.
 - At least **25 GB** of free disk space (peak usage is roughly 23 GB).
 
 ### Quick Build
@@ -84,12 +86,12 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 sudo ./build.sh --check
 
 # 2. Build the ISO
-sudo BASE_ISO=/path/to/ubuntu-26.04.1-desktop-amd64.iso ./build.sh
+sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 ```
 
-On success, `out/zhenTo-<VERSION>-amd64.iso` and its `.md5` file are produced. Intermediate files under `work/` are removed unless `KEEP_WORK=1` is set.
+On success the ISO and its `.md5` file are produced under `out/`; the inherited script still names them `zhenTo-<VERSION>-amd64.iso` and `zhenTo-<VERSION>-amd64.md5`. Intermediate files under `work/` are removed unless `KEEP_WORK=1` is set.
 
-> **Note:** the default `BASE_ISO` points to the maintainer's local path. Always pass your own via `BASE_ISO=...` or edit the default in `build.sh`.
+> **Note:** the default `BASE_ISO` points to the maintainer's local Ubuntu ISO path (inherited from ZhenTo). Always pass your own Kubuntu ISO via `BASE_ISO=...` or edit the default in `build.sh`.
 
 ### Build Modes
 
@@ -103,9 +105,9 @@ On success, `out/zhenTo-<VERSION>-amd64.iso` and its `.md5` file are produced. I
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | Source Ubuntu desktop ISO |
+| `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | Source Kubuntu desktop ISO (inherited default; override it) |
 | `VERSION` | `0.1.1` | Product version (embedded in the ISO name and `os-release`) |
-| `VOLID` | `ZhenTo <VERSION> amd64` | ISO volume label (truncated to 32 characters) |
+| `VOLID` | `ZhenTo <VERSION> amd64` | ISO volume label (inherited; override with `VOLID="Kzhento <VERSION> amd64"`, truncated to 32 characters) |
 | `WORK_DIR` | `<repo>/work` | Intermediate build directory |
 | `OUT_DIR` | `<repo>/out` | Output directory for the ISO |
 | `PATCH_LAYERS` | `auto` | `auto` or a space-separated list of casper layer files to patch |
@@ -124,11 +126,11 @@ The build script refuses to run if `VERSION` does not match `edit-os-release/os-
    ```
 
 2. **Boot** the target machine in UEFI mode and select the USB drive. Legacy BIOS boot is not supported.
-3. Choose **Try or Install ZhenTo** (or **ZhenTo (safe graphics)** if you hit display driver issues), then run the ZhenTo Desktop Installer.
+3. Choose **Try or Install ZhenTo** (or **ZhenTo (safe graphics)** if you hit display driver issues) — the GRUB labels are inherited from ZhenTo — then run the desktop installer.
 
 ## Downloading a Release
 
-GitHub Release assets are split into 1800 MB compressed volumes to stay below the 2 GB per-file limit. Reassemble and verify them like this:
+GitHub Release assets are split into 1800 MB compressed volumes to stay below the 2 GB per-file limit. Reassemble and verify them like this (the inherited file naming is retained):
 
 ```bash
 unzip zhenTo-<VERSION>-amd64.iso.zip
@@ -140,7 +142,7 @@ Helper scripts are provided to download **all** assets of a release (including d
 ```bash
 # Requires: gh auth login (write access is needed for drafts)
 ./scripts/download-release.sh v0.1.1
-./scripts/download-release.sh v0.1.1 zitzhen/zhenTo ./out   # explicit repo and output dir
+./scripts/download-release.sh v0.1.1 zitzhen/Kzhento ./out   # explicit repo and output dir
 ```
 
 Windows users can use `scripts\download-release.ps1` (PowerShell) or `scripts\download-release.cmd`.
@@ -178,7 +180,7 @@ See [tests/README.md](tests/README.md) for details and safety notes.
 
 ## Contributing
 
-1. Fork the repository and create a branch from `main`.
+1. Fork https://github.com/zitzhen/Kzhento and create a branch from `main`.
 2. Make your change, keeping the version consistent across `build.sh`, `edit-os-release/os-release`, and `.github/workflows/build-iso.yml`.
 3. Run the local checks above.
 4. Commit with a DCO sign-off:
@@ -196,8 +198,9 @@ Bug reports and feature requests are welcome via the issue templates in `.github
 
 Licensed under the **GNU Affero General Public License v3.0 only** — see [LICENSE](LICENSE).
 
-Created by **ZIT Studio (ZIT 小圳工作室)**.
+Created by **ZIT Studio (ZIT 小圳工作室)**. Kzhento is derived from [ZhenTo](https://github.com/zitzhen/zhenTo); the code in this repository was copied from that project and has not been modified.
 
 - Author / maintainer: Oliver Lin <oliver@liuxiaozhen.dev>
 - Contributors: see [CONTRIBUTORS](CONTRIBUTORS)
-- Homepage: https://zitzhen.cn/
+- Upstream homepage: https://zitzhen.cn/
+- Project homepage: https://github.com/zitzhen/Kzhento

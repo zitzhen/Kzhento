@@ -1,21 +1,23 @@
-# ZhenTo
+# Kzhento
 
-> 由 ZIT 小圳工作室打造的基於 Ubuntu 作業系統。
+> 由 ZIT 小圳工作室打造的基於 Kubuntu 作業系統，源自 [ZhenTo](https://github.com/zitzhen/zhenTo)。
 
 [English](README.md) · [简体中文](README_zh-cn.md) · [繁體中文](README_zh-tw.md)
 
-ZhenTo 是一款基於 **Ubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Linux 發行版。它重新塑造了原始桌面映像的品牌形象，預裝了一組開發工具，並產生可直接寫入 USB 隨身碟的 **僅 UEFI** 開機／安裝 ISO 映像。
+Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Linux 發行版。本儲存庫的程式碼複製自 ZhenTo：其 shell 腳本重新塑造了原始桌面映像的品牌形象，預裝了一組開發工具，並產生可直接寫入 USB 隨身碟的 **僅 UEFI** 開機／安裝 ISO 映像。
 
 整個映像由 shell 腳本組裝完成——舊有的 Cubic 依賴已被移除。從解壓官方 ISO、在 `chroot` 中修補，到重新封裝成可開機映像，一切都能在本儲存庫中重現。
+
+> **關於原始碼的說明：** 腳本本身未做任何修改。其中的預設值與執行期字串（`BASE_ISO`、磁碟區標籤、產出檔名、`/etc/os-release`、GRUB 選單）仍沿用 ZhenTo/Ubuntu 的識別。建置時請透過 `BASE_ISO` 傳入你自己的 Kubuntu ISO。
 
 | | |
 |---|---|
 | **目前版本** | 0.1.1 |
-| **基礎映像** | Ubuntu 26.04.1 Desktop（amd64） |
+| **基礎映像** | Kubuntu 26.04.1 Desktop（amd64） |
 | **韌體** | 僅 UEFI（不支援傳統 BIOS） |
 | **授權** | [AGPL-3.0-only](LICENSE) |
-| **首頁** | https://zitzhen.cn/ |
-| **問題回報** | https://github.com/zitzhen/zhenTo/issues |
+| **首頁** | https://github.com/zitzhen/Kzhento |
+| **問題回報** | https://github.com/zitzhen/Kzhento/issues |
 
 ---
 
@@ -39,10 +41,10 @@ ZhenTo 是一款基於 **Ubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Li
 
 ## 特色
 
-- **品牌重塑** —— `/etc/os-release` 與 GRUB 開機選單皆標示為 ZhenTo。
+- **品牌重塑** —— `/etc/os-release` 與 GRUB 開機選單是 Kzhento 的品牌入口（目前仍沿用繼承而來的 ZhenTo 字樣）。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
-- **ZhenTo 桌面安裝程式** —— 來自 [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) 的 `ubuntu-desktop-bootstrap` snap 已預置於映像中。在真實系統中直接安裝；在 `chroot` 內則透過一次性 systemd 服務於首次開機時完成安裝。
+- **Kzhento 桌面安裝程式** —— 來自 [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) 的 `ubuntu-desktop-bootstrap` snap 已預置於映像中。在真實系統中直接安裝；在 `chroot` 內則透過一次性 systemd 服務於首次開機時完成安裝。
 - **感知分層的修補機制** —— 僅修改預設安裝來源的基礎 squashfs 層，語言層與 enhanced-secureboot 覆蓋層保持不變。
 - **總和檢查碼與驗證** —— 重新產生 `md5sum.txt`，CI 為每個發行版發佈 MD5 與 SHA256 檢查碼檔案。
 - **自動化 CI** —— Pull Request 由 lint／單元測試把關；標籤建置會產生 GitHub 草稿 Release，並分割為小於 2 GB 的壓縮檔。
@@ -53,15 +55,15 @@ ZhenTo 是一款基於 **Ubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Li
 .
 ├── build.sh                  # 主 ISO 建置腳本（解壓 → chroot → 重新封裝）
 ├── edit-grub/
-│   ├── grub.cfg              # ZhenTo GRUB 選單
+│   ├── grub.cfg              # GRUB 選單（Kzhento 品牌；沿用 ZhenTo 選單項）
 │   └── replace-grub.sh       # 將選單寫入目標 grub.cfg（自動備份）
 ├── edit-os-release/
-│   ├── os-release            # ZhenTo /etc/os-release 品牌資訊
+│   ├── os-release            # /etc/os-release 品牌資訊（Kzhento；沿用原有值）
 │   └── edit.sh               # 將檔案寫入 /etc/os-release
 ├── install-app/
 │   ├── ppa.list              # 建置時啟用的額外 PPA
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh
-│   └── Installer.sh          # ZhenTo 桌面安裝程式（snap）設定
+│   └── Installer.sh          # 桌面安裝程式（snap）設定
 ├── scripts/
 │   └── download-release.*    # 下載 GitHub Release 的全部資產（sh / ps1 / cmd）
 ├── tests/                    # 四層煙霧測試（詳見 tests/README.md）
@@ -73,8 +75,8 @@ ZhenTo 是一款基於 **Ubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Li
 ### 準備工作
 
 - 一台以 **root** 身份執行的 Linux 主機（需要 `chroot` 與掛載操作）。
-- 下列指令：`xorriso`、`unsquashfs`、`mksquashfs`、`rsync`、`dd`、`awk`（在 Ubuntu 上：`sudo apt-get install xorriso squashfs-tools rsync`）。
-- Ubuntu 26.04.1 桌面基礎 ISO，需具備分層 squashfs 與 `casper/install-sources.yaml` 檔案。
+- 下列指令：`xorriso`、`unsquashfs`、`mksquashfs`、`rsync`、`dd`、`awk`（在 Ubuntu/Kubuntu 上：`sudo apt-get install xorriso squashfs-tools rsync`）。
+- Kubuntu 26.04.1 桌面基礎 ISO，需具備分層 squashfs 與 `casper/install-sources.yaml` 檔案。
 - 至少 **25 GB** 可用磁碟空間（尖峰佔用約 23 GB）。
 
 ### 快速建置
@@ -84,12 +86,12 @@ ZhenTo 是一款基於 **Ubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 Li
 sudo ./build.sh --check
 
 # 2. 建置 ISO
-sudo BASE_ISO=/path/to/ubuntu-26.04.1-desktop-amd64.iso ./build.sh
+sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 ```
 
-成功後會產生 `out/zhenTo-<VERSION>-amd64.iso` 及其 `.md5` 檔案。除非設定 `KEEP_WORK=1`，否則 `work/` 下的中間檔案會被清除。
+成功後會在 `out/` 下產生 ISO 及其 `.md5` 檔案；沿用原腳本的命名，仍為 `zhenTo-<VERSION>-amd64.iso` 與 `zhenTo-<VERSION>-amd64.md5`。除非設定 `KEEP_WORK=1`，否則 `work/` 下的中間檔案會被清除。
 
-> **注意：** `BASE_ISO` 預設值指向維護者本機的路徑。請務必透過 `BASE_ISO=...` 傳入你自己的路徑，或修改 `build.sh` 中的預設值。
+> **注意：** `BASE_ISO` 預設值指向維護者本機的 Ubuntu ISO 路徑（繼承自 ZhenTo）。請務必透過 `BASE_ISO=...` 傳入你自己的 Kubuntu ISO，或修改 `build.sh` 中的預設值。
 
 ### 建置模式
 
@@ -103,9 +105,9 @@ sudo BASE_ISO=/path/to/ubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 | 變數 | 預設值 | 用途 |
 |---|---|---|
-| `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | 來源 Ubuntu 桌面 ISO |
+| `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | 來源 Kubuntu 桌面 ISO（繼承的預設值；請覆蓋） |
 | `VERSION` | `0.1.1` | 產品版本（寫入 ISO 名稱與 `os-release`） |
-| `VOLID` | `ZhenTo <VERSION> amd64` | ISO 磁碟區標籤（截斷為 32 個字元） |
+| `VOLID` | `ZhenTo <VERSION> amd64` | ISO 磁碟區標籤（繼承值；可覆蓋為 `VOLID="Kzhento <VERSION> amd64"`，截斷為 32 個字元） |
 | `WORK_DIR` | `<repo>/work` | 中間建置目錄 |
 | `OUT_DIR` | `<repo>/out` | ISO 輸出目錄 |
 | `PATCH_LAYERS` | `auto` | `auto` 或以空格分隔的待修改 casper 層檔案清單 |
@@ -124,11 +126,11 @@ sudo BASE_ISO=/path/to/ubuntu-26.04.1-desktop-amd64.iso ./build.sh
    ```
 
 2. **開機**目標機器並進入 UEFI 模式，選擇 USB 隨身碟。不支援傳統 BIOS 開機。
-3. 選擇 **Try or Install ZhenTo**（若遇到顯示卡驅動問題則選擇 **ZhenTo (safe graphics)**），然後執行 ZhenTo 桌面安裝程式。
+3. 選擇 **Try or Install ZhenTo**（若遇到顯示卡驅動問題則選擇 **ZhenTo (safe graphics)**）——GRUB 選單項目繼承自 ZhenTo——然後執行桌面安裝程式。
 
 ## 下載發行版
 
-GitHub Release 的資產被分割為 1800 MB 的壓縮分卷，以低於單一檔案 2 GB 的限制。請依下列方式合併並驗證：
+GitHub Release 的資產被分割為 1800 MB 的壓縮分卷，以低於單一檔案 2 GB 的限制。請依下列方式合併並驗證（沿用原有檔案命名）：
 
 ```bash
 unzip zhenTo-<VERSION>-amd64.iso.zip
@@ -140,7 +142,7 @@ sha256sum -c zhenTo-<VERSION>-amd64.iso.sha256
 ```bash
 # 需要：gh auth login（下載草稿需要寫入權限）
 ./scripts/download-release.sh v0.1.1
-./scripts/download-release.sh v0.1.1 zitzhen/zhenTo ./out   # 明確指定儲存庫與輸出目錄
+./scripts/download-release.sh v0.1.1 zitzhen/Kzhento ./out   # 明確指定儲存庫與輸出目錄
 ```
 
 Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `scripts\download-release.cmd`。
@@ -178,7 +180,7 @@ bash tests/preflight.test.sh
 
 ## 參與貢獻
 
-1. Fork 本儲存庫，從 `main` 建立分支。
+1. Fork https://github.com/zitzhen/Kzhento，從 `main` 建立分支。
 2. 進行變更，並保持版本在 `build.sh`、`edit-os-release/os-release` 與 `.github/workflows/build-iso.yml` 三處一致。
 3. 執行上述本機檢查。
 4. 提交時附上 DCO 簽署：
@@ -196,8 +198,9 @@ bash tests/preflight.test.sh
 
 本專案採用 **GNU Affero General Public License v3.0 only** 授權 —— 詳見 [LICENSE](LICENSE)。
 
-由 **ZIT 小圳工作室** 建立。
+由 **ZIT 小圳工作室** 建立。Kzhento 源自 [ZhenTo](https://github.com/zitzhen/zhenTo)；本儲存庫的程式碼複製自該專案，且未做任何修改。
 
-- 作者／維護者：Oliver Lin <oliver@liuxiaozhen.dev>
+- 作者／維護者： Oliver Lin <oliver@liuxiaozhen.dev>
 - 貢獻者：請見 [CONTRIBUTORS](CONTRIBUTORS)
-- 首頁：https://zitzhen.cn/
+- 上游首頁：https://zitzhen.cn/
+- 專案首頁：https://github.com/zitzhen/Kzhento
