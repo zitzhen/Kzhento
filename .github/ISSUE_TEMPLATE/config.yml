@@ -1,0 +1,11 @@
+# https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository
+
+blank_issues_enabled: true
+
+contact_links:
+  - name: 项目说明（README）
+    url: https://github.com/zitzhen/zhenTo#readme
+    about: 先了解 zhenTo 的构建方式与项目目标
+  - name: 版本一致性与构建说明
+    url: https://github.com/zitzhen/zhenTo/blob/main/build.sh
+    about: 构建脚本的用法与 VERSION / VOLID 等参数说明

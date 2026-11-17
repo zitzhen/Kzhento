@@ -1,0 +1,14 @@
+.wrangler/
+
+work/
+out/
+
+# Ignore all ISO files
+*.iso
+*.z03
+*.z02
+*.z01
+*.zip
+*.md5
+*.sha256
+SHA256SUMS

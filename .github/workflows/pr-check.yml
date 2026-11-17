@@ -1,0 +1,100 @@
+name: PR Check
+
+# Pre-merge gate: static checks only, no ISO build, finishes in tens of seconds.
+# Mark lint / secrets as required checks in branch protection to block bad PRs.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ACTIONLINT_VERSION: v1.7.12
+  SHFMT_VERSION: v3.14.1
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install linters
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          curl -fsSL -o /tmp/actionlint.tar.gz \
+            "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz"
+          sudo tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
+          curl -fsSL -o /tmp/shfmt \
+            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          sudo install -m 0755 /tmp/shfmt /usr/local/bin/shfmt
+
+      - name: Syntax check
+        run: |
+          set -e
+          while IFS= read -r f; do
+            case "$(head -n1 "$f")" in
+              *bash*) bash -n "$f" ;;
+              *) sh -n "$f" ;;
+            esac
+          done < <(git ls-files '*.sh')
+
+      - name: Unit tests (node:test)
+        run: node --test tests/*.test.js
+
+      - name: Version consistency
+        run: bash tests/check-version-consistency.sh
+
+      - name: shellcheck
+        run: |
+          set -e
+          mapfile -t files < <(git ls-files '*.sh')
+          [ "${#files[@]}" -gt 0 ] || exit 0
+          shellcheck --severity=warning --external-sources "${files[@]}"
+
+      - name: shfmt (changed files only)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -e
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${BASE_SHA}...HEAD" -- '*.sh')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No shell scripts changed in this PR"
+            exit 0
+          fi
+          shfmt -d -i 4 "${files[@]}"
+
+      - name: actionlint
+        run: actionlint -color
+
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Preflight smoke tests
+        run: bash tests/preflight.test.sh
+
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: gitleaks
+        run: |
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/repo" \
+            "${GITLEAKS_IMAGE}" \
+            dir /repo --no-banner --redact --verbose

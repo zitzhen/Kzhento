@@ -1,0 +1,51 @@
+name: Maintenance task (English)
+description: Track CI, documentation, dependency, refactoring, or other chore work
+title: "chore: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for maintenance work that is neither a bug fix nor a new feature.
+
+        > You can change the title prefix to fit the task; the auto-label script recognizes:
+        > `chore:` / `ci:` / `deps:` / `docs:` / `refactor:` / `perf:` / `i18n:` / `build:`
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task type
+      options:
+        - CI / automation (ci)
+        - Dependency update (deps)
+        - Documentation (docs)
+        - Refactoring (refactor)
+        - Performance improvement (perf)
+        - Internationalization / localization (i18n)
+        - Build system (build)
+        - Other chore (chore)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Task description
+      description: What needs to be done, and why
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What defines "done"? How will it be verified?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

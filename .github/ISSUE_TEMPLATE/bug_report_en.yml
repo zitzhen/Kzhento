@@ -1,0 +1,77 @@
+name: Bug report (English)
+description: Report a problem with the build, installation, boot process, or runtime
+title: "fix: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report! Please fill in as much detail as possible so we can reproduce and locate the issue.
+
+        > The title is pre-filled with `fix:` — please keep it, so the auto-label script applies the `bug` label.
+        > Please search the existing issues first to avoid duplicates.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Pick the closest module; if unsure, choose "Other / not sure" and explain below
+      options:
+        - ISO build / build.sh
+        - Preinstalled apps / install-app
+        - Boot configuration / edit-grub
+        - System info / edit-os-release
+        - Utility scripts / scripts
+        - CI / GitHub Actions
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: zhenTo version
+      description: e.g. 0.1.1 (see VERSION in build.sh or VERSION_ID in os-release)
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Bare metal or VM (VMware / VirtualBox / QEMU etc.), RAM, disk, host OS
+      placeholder: "QEMU 8.2, 4 GB RAM, x86_64, host Ubuntu 24.04"
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide steps or commands that reproduce the issue reliably
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / error output
+      description: Paste the error, failure log, crash output, or a screenshot link (error, crash, exception, fails to boot, etc.)
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: What you have already tried, related issues / PRs, or anything else that helps

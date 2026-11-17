@@ -1,0 +1,52 @@
+name: 维护任务
+description: CI、文档、依赖更新、重构或杂务类任务
+title: "chore: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        用于追踪非 Bug、非新功能的维护类工作。
+
+        > 标题前缀可按实际情况修改，自动打标脚本会识别：
+        > `chore:` / `ci:` / `deps:` / `docs:` / `refactor:` / `perf:` / `i18n:` / `build:`
+        > （也支持中文前缀：维护 / 文档 / 重构 / 性能 / 本地化 / 预装）
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: 任务类型
+      options:
+        - CI / 自动化（ci）
+        - 依赖更新（deps）
+        - 文档（docs）
+        - 重构（refactor）
+        - 性能优化（perf）
+        - 国际化 / 本地化（i18n）
+        - 构建系统（build）
+        - 其他杂务（chore）
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 任务描述
+      description: 需要做什么，以及为什么要做
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 完成的标准是什么？如何验证？
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 其他补充

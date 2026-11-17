@@ -1,0 +1,12 @@
+PRETTY_NAME="zhenTo 0.1.1"
+NAME="zhenTo"
+VERSION_ID="0.1.1"
+VERSION="26.04.1 (Resolute Raccoon)"
+VERSION_CODENAME=resolute
+ID=ubuntu
+ID_LIKE=ubuntu debian
+HOME_URL="https://zitzhen.cn/"
+SUPPORT_URL="https://zitzhen.cn/"
+BUG_REPORT_URL="https://github.com/zitzhen/zhenTo/issues"
+UBUNTU_CODENAME=resolute
+LOGO=ubuntu-logo

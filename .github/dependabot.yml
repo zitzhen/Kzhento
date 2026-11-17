@@ -1,0 +1,12 @@
+version: 2
+
+updates:
+  # Automatically follow action versions pinned to commit SHAs in workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

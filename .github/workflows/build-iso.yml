@@ -1,0 +1,244 @@
+name: Build ISO
+
+# Triggers:
+#   - manual (workflow_dispatch), with a version and a base ISO
+#   - push of a v* tag
+#
+# Artifacts:
+#   - UEFI-only ISO, split into compressed volumes of 1800M each (well under GitHub's 2G limit)
+#   - a draft release is created automatically
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version number (without the leading v, e.g. 0.1.0)
+        required: true
+        default: "0.1.1"
+      base_iso_url:
+        description: Base ISO download URL
+        required: true
+        default: "https://releases.ubuntu.com/26.04/ubuntu-26.04.1-desktop-amd64.iso"
+      base_iso_sha256:
+        description: sha256 of the base ISO (leave empty to skip checksum verification)
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEFAULT_BASE_ISO_URL: https://releases.ubuntu.com/26.04/ubuntu-26.04.1-desktop-amd64.iso
+  # Keep the original 128K block but switch to zstd: re-compressing the 6.5G rootfs with xz is too slow on CI
+  SQUASHFS_COMP: zstd
+  SQUASHFS_BLOCK: "131072"
+  VOLUME_SIZE: 1800m
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          preinstalled-runtimes: true
+          swap-storage: false
+
+      - name: Check available disk space
+        run: |
+          set -e
+          df -h
+          avail_gb=$(df -Pk . | awk 'NR==2{print int($4/1024/1024)}')
+          echo "Available space: ${avail_gb}G"
+          if [ "$avail_gb" -lt 25 ]; then
+            echo "XX Not enough disk space (needs >= 25G, peak usage is ~23G)" >&2
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xorriso squashfs-tools rsync zip
+          xorriso -version | head -n1
+
+      - name: Compute version
+        id: meta
+        run: |
+          set -e
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            BASE_URL="${{ inputs.base_iso_url }}"
+            BASE_SHA="${{ inputs.base_iso_sha256 }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+            BASE_URL="${DEFAULT_BASE_ISO_URL}"
+            BASE_SHA=""
+          fi
+          [ -n "$VERSION" ] || { echo "XX Version is empty" >&2; exit 1; }
+          {
+            echo "version=${VERSION}"
+            echo "tag=v${VERSION}"
+            echo "base_url=${BASE_URL}"
+            echo "base_sha=${BASE_SHA}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Version: ${VERSION}"
+
+      - name: Compute base ISO cache key
+        id: iso-key
+        env:
+          URL: ${{ steps.meta.outputs.base_url }}
+          SHA: ${{ steps.meta.outputs.base_sha }}
+        run: |
+          set -e
+          key=$(printf '%s|%s' "$URL" "$SHA" | sha256sum | cut -c1-16)
+          echo "key=base-iso-${key}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore base ISO cache
+        id: iso-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cache/base.iso
+          key: ${{ steps.iso-key.outputs.key }}
+
+      - name: Download base ISO
+        env:
+          URL: ${{ steps.meta.outputs.base_url }}
+          SHA: ${{ steps.meta.outputs.base_sha }}
+          CACHE_HIT: ${{ steps.iso-cache.outputs.cache-hit }}
+        run: |
+          set -e
+          mkdir -p "$RUNNER_TEMP/cache"
+          BASE_ISO="$RUNNER_TEMP/cache/base.iso"
+          if [ "$CACHE_HIT" = "true" ] && [ -f "$BASE_ISO" ]; then
+            echo "Cache hit, skipping download"
+          else
+            curl -fL --retry 3 --retry-delay 5 -o "$BASE_ISO" "$URL"
+          fi
+          if [ -n "$SHA" ]; then
+            echo "${SHA}  ${BASE_ISO}" | sha256sum -c -
+          fi
+          ls -lh "$BASE_ISO"
+          echo "BASE_ISO=${BASE_ISO}" >> "$GITHUB_ENV"
+
+      - name: Save base ISO cache
+        if: steps.iso-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cache/base.iso
+          key: ${{ steps.iso-key.outputs.key }}
+
+      - name: Preflight check
+        env:
+          WORK_DIR: ${{ runner.temp }}/work
+          OUT_DIR: ${{ runner.temp }}/out
+        run: |
+          sudo env \
+            BASE_ISO="${BASE_ISO}" \
+            VERSION="${{ steps.meta.outputs.version }}" \
+            WORK_DIR="${WORK_DIR}" \
+            OUT_DIR="${OUT_DIR}" \
+            SQUASHFS_COMP="${SQUASHFS_COMP}" \
+            SQUASHFS_BLOCK="${SQUASHFS_BLOCK}" \
+            ./build.sh --check
+
+      - name: Build ISO
+        env:
+          WORK_DIR: ${{ runner.temp }}/work
+          OUT_DIR: ${{ runner.temp }}/out
+        run: |
+          sudo env \
+            BASE_ISO="${BASE_ISO}" \
+            VERSION="${{ steps.meta.outputs.version }}" \
+            WORK_DIR="${WORK_DIR}" \
+            OUT_DIR="${OUT_DIR}" \
+            SQUASHFS_COMP="${SQUASHFS_COMP}" \
+            SQUASHFS_BLOCK="${SQUASHFS_BLOCK}" \
+            ./build.sh
+
+      - name: Verify artifact
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          bash tests/verify-artifact.sh \
+            "${RUNNER_TEMP}/out/zhenTo-${VERSION}-amd64.iso" "$VERSION"
+
+      - name: Split into compressed volumes
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -e
+          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+          mkdir -p dist
+          cp "${RUNNER_TEMP}/out/${ISO_NAME}" dist/
+          cp "${RUNNER_TEMP}/out/zhenTo-${VERSION}-amd64.md5" dist/
+
+          # The base ISO is no longer needed; free up 6G before splitting volumes
+          rm -f "${BASE_ISO}"
+
+          (
+            cd dist
+            sha256sum "${ISO_NAME}" > "${ISO_NAME}.sha256"
+            # Each volume is 1800M (1.76GiB), well under GitHub Release's 2G per-file limit
+            zip -0 -s "${VOLUME_SIZE}" "${ISO_NAME}.zip" "${ISO_NAME}"
+            rm -f "${ISO_NAME}"
+            sha256sum "${ISO_NAME}".z* "${ISO_NAME}.zip" > SHA256SUMS
+          )
+
+          ls -lh dist
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ZhenTo ${{ steps.meta.outputs.version }}
+          draft: true
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: dist/*
+          body: |
+            ZhenTo ${{ steps.meta.outputs.version }} (UEFI-only, based on Ubuntu 26.04.1 LTS)
+
+            ## Files
+
+            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip` / `.z01` / `.z02` ...: compressed volumes, each under 2G
+            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256`: sha256 of the full ISO
+            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.md5`: md5 of the full ISO
+            - `SHA256SUMS`: sha256 of each volume
+
+            ## Restore the ISO
+
+            Download all volumes into the same directory, then run:
+
+            ```bash
+            unzip zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip
+            sha256sum -c zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256
+            ```
+
+            ## Write to a USB drive
+
+            ```bash
+            sudo dd if=zhenTo-${{ steps.meta.outputs.version }}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+            ```
+
+            UEFI boot only.
+
+            > This release is an auto-generated draft produced by GitHub Actions. Review it before publishing.

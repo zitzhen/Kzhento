@@ -1,0 +1,56 @@
+name: Feature request (English)
+description: Propose a new feature, a new preinstalled app, or an improvement
+title: "feat: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome new ideas! Please describe the problem you want to solve, not just the implementation you have in mind.
+
+        > The title is pre-filled with `feat:` — please keep it, so the auto-label script applies the `enhancement` label.
+        > Please search the existing issues first to avoid duplicate requests.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component to improve
+      options:
+        - Preinstalled apps / install-app (add or update software)
+        - ISO build / build.sh
+        - Boot configuration / edit-grub
+        - System info / edit-os-release
+        - Utility scripts / scripts
+        - CI / GitHub Actions
+        - Documentation
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve
+      description: Describe the current pain point or missing capability (feature requests and suggestions are welcome here)
+      placeholder: I would like / suggest ... because currently ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work? For a new preinstalled app, please include the app name and purpose
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there other ways to achieve this? Why were they not chosen?
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Reference links, upstream projects, related issues / PRs, or any other useful information

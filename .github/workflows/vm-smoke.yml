@@ -1,0 +1,88 @@
+name: VM Smoke
+
+# Advisory boot check for the UEFI-only ISO. Deliberately kept out of the PR
+# gate: GitHub-hosted runners have no /dev/kvm, so QEMU falls back to slow TCG
+# emulation. Failures never block a release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      iso_url:
+        description: Direct ISO URL (optional; overrides tag lookup)
+        required: false
+        default: ""
+      tag:
+        description: Published release tag, e.g. v0.1.1 (used when iso_url is empty)
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  boot:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 ovmf unzip curl gh
+
+      - name: Obtain ISO
+        env:
+          ISO_URL: ${{ inputs.iso_url }}
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          dest="$RUNNER_TEMP/vm-smoke"
+          mkdir -p "$dest"
+
+          if [ -n "$ISO_URL" ]; then
+            curl -fL --retry 3 --retry-delay 5 -o "$dest/image.iso" "$ISO_URL"
+          else
+            tag="${TAG:-${GITHUB_REF_NAME}}"
+            [ -n "$tag" ] || { echo "XX No tag given" >&2; exit 1; }
+            # On a tag push the build workflow may still be publishing. Poll
+            # briefly, then leave a clear message instead of hanging forever.
+            ready=0
+            for _ in $(seq 1 20); do
+              if gh release view "$tag" >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 30
+            done
+            [ "$ready" -eq 1 ] || {
+              echo "!! Release $tag is not available yet; rerun this workflow manually after publishing." >&2
+              exit 0
+            }
+            gh release download "$tag" --dir "$dest" \
+              --pattern 'zhenTo-*.zip' --pattern 'zhenTo-*.z0*'
+            unzip -o "$dest"/*.zip -d "$dest"
+          fi
+
+          iso=$(find "$dest" -maxdepth 1 -type f -name '*.iso' | head -n1)
+          [ -n "$iso" ] || { echo "XX No ISO found in $dest" >&2; exit 1; }
+          ls -lh "$iso"
+          echo "ISO_PATH=$iso" >> "$GITHUB_ENV"
+
+      - name: Boot smoke test
+        env:
+          # TCG emulation is slow; 240s is a compromise for an advisory check.
+          SMOKE_TIMEOUT: "240"
+        run: bash tests/vm-smoke.sh "$ISO_PATH" "$SMOKE_TIMEOUT"
