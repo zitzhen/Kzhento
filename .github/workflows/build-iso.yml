@@ -18,7 +18,7 @@ on:
       base_iso_url:
         description: Base ISO download URL
         required: true
-        default: "https://releases.ubuntu.com/26.04/ubuntu-26.04.1-desktop-amd64.iso"
+        default: "https://cdimage.ubuntu.com/kubuntu/releases/26.04.1/release/kubuntu-26.04.1-desktop-amd64.iso"
       base_iso_sha256:
         description: sha256 of the base ISO (leave empty to skip checksum verification)
         required: false
@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEFAULT_BASE_ISO_URL: https://releases.ubuntu.com/26.04/ubuntu-26.04.1-desktop-amd64.iso
+  DEFAULT_BASE_ISO_URL: https://cdimage.ubuntu.com/kubuntu/releases/26.04.1/release/kubuntu-26.04.1-desktop-amd64.iso
   # Keep the original 128K block but switch to zstd: re-compressing the 6.5G rootfs with xz is too slow on CI
   SQUASHFS_COMP: zstd
   SQUASHFS_BLOCK: "131072"
