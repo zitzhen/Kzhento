@@ -126,7 +126,7 @@ The build script refuses to run if `VERSION` does not match `edit-os-release/os-
    ```
 
 2. **Boot** the target machine in UEFI mode and select the USB drive. Legacy BIOS boot is not supported.
-3. Choose **Try or Install ZhenTo** (or **ZhenTo (safe graphics)** if you hit display driver issues) — the GRUB labels are inherited from ZhenTo — then run the desktop installer.
+3. Choose **Try or Install KzhenTo** (or **KzhenTo (safe graphics)** if you hit display driver issues) — the GRUB labels are inherited from ZhenTo — then run the desktop installer.
 
 ## Downloading a Release
 

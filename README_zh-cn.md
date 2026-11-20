@@ -126,7 +126,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
    ```
 
 2. **启动**目标机器并进入 UEFI 模式，选择 U 盘。不支持传统 BIOS 启动。
-3. 选择 **Try or Install ZhenTo**（若遇到显卡驱动问题则选择 **ZhenTo (safe graphics)**）——GRUB 菜单项继承自 ZhenTo——然后运行桌面安装器。
+3. 选择 **Try or Install KzhenTo**（若遇到显卡驱动问题则选择 **KzhenTo (safe graphics)**）——GRUB 菜单项继承自 ZhenTo——然后运行桌面安装器。
 
 ## 下载发行版
 
