@@ -12,7 +12,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 
 | | |
 |---|---|
-| **目前版本** | 0.1.1 |
+| **目前版本** | 0.1.0 |
 | **基礎映像** | Kubuntu 26.04.1 Desktop（amd64） |
 | **韌體** | 僅 UEFI（不支援傳統 BIOS） |
 | **授權** | [AGPL-3.0-only](LICENSE) |
@@ -106,7 +106,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 | 變數 | 預設值 | 用途 |
 |---|---|---|
 | `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | 來源 Kubuntu 桌面 ISO（繼承的預設值；請覆蓋） |
-| `VERSION` | `0.1.1` | 產品版本（寫入 ISO 名稱與 `os-release`） |
+| `VERSION` | `0.1.0` | 產品版本（寫入 ISO 名稱與 `os-release`） |
 | `VOLID` | `ZhenTo <VERSION> amd64` | ISO 磁碟區標籤（繼承值；可覆蓋為 `VOLID="Kzhento <VERSION> amd64"`，截斷為 32 個字元） |
 | `WORK_DIR` | `<repo>/work` | 中間建置目錄 |
 | `OUT_DIR` | `<repo>/out` | ISO 輸出目錄 |
@@ -126,7 +126,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
    ```
 
 2. **開機**目標機器並進入 UEFI 模式，選擇 USB 隨身碟。不支援傳統 BIOS 開機。
-3. 選擇 **Try or Install ZhenTo**（若遇到顯示卡驅動問題則選擇 **ZhenTo (safe graphics)**）——GRUB 選單項目繼承自 ZhenTo——然後執行桌面安裝程式。
+3. 選擇 **Try or Install KzhenTo**（若遇到顯示卡驅動問題則選擇 **KzhenTo (safe graphics)**）——GRUB 選單項目繼承自 ZhenTo——然後執行桌面安裝程式。
 
 ## 下載發行版
 
@@ -141,8 +141,8 @@ sha256sum -c zhenTo-<VERSION>-amd64.iso.sha256
 
 ```bash
 # 需要：gh auth login（下載草稿需要寫入權限）
-./scripts/download-release.sh v0.1.1
-./scripts/download-release.sh v0.1.1 zitzhen/Kzhento ./out   # 明確指定儲存庫與輸出目錄
+./scripts/download-release.sh v0.1.0
+./scripts/download-release.sh v0.1.0 zitzhen/Kzhento ./out   # 明確指定儲存庫與輸出目錄
 ```
 
 Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `scripts\download-release.cmd`。

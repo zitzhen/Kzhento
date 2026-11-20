@@ -26,13 +26,13 @@ usage() {
     cat >&2 <<'EOF'
 Usage: ./download-release.sh <tag> [owner/name] [output dir]
 
-  tag         Required, release git tag, e.g. v0.1.1
+  tag         Required, release git tag, e.g. v0.1.0
   owner/name  Optional, full repository name; defaults to the current GitHub repo
   output dir  Optional, defaults to ./<repo name>-<tag>
 
 Examples:
-  ./download-release.sh v0.1.1
-  ./download-release.sh v0.1.1 zitzhen/zhenTo ./zhenTo-0.1.1
+  ./download-release.sh v0.1.0
+  ./download-release.sh v0.1.0 zitzhen/zhenTo ./zhenTo-0.1.0
 EOF
 }
 

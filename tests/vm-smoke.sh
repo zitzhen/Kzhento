@@ -67,7 +67,7 @@ qemu_pid=$!
 
 elapsed=0
 while [ "$elapsed" -lt "$TIMEOUT" ]; do
-    if grep -qE 'Try or Install ZhenTo|Linux version|Welcome to|login:|ZhenTo' "$LOG" 2>/dev/null; then
+    if grep -qE 'Try or Install KzhenTo|Linux version|Welcome to|login:|KzhenTo' "$LOG" 2>/dev/null; then
         break
     fi
     kill -0 "$qemu_pid" >/dev/null 2>&1 || break
@@ -90,8 +90,8 @@ if grep -qiE 'kernel panic|out of memory|fatal exception|no bootable option' "$L
 fi
 ok "no fatal boot failure in serial log"
 
-if grep -qE 'Try or Install ZhenTo|Linux version|Welcome to|login:|ZhenTo' "$LOG"; then
-    ok "boot reached a recognizable ZhenTo / Linux marker"
+if grep -qE 'Try or Install KzhenTo|Linux version|Welcome to|login:|KzhenTo' "$LOG"; then
+    ok "boot reached a recognizable KzhenTo / Linux marker"
 else
     warn "no recognizable boot marker; see advisory log below"
 fi

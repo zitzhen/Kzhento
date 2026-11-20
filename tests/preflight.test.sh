@@ -117,7 +117,7 @@ out=$(PATH="$MOCK_BIN:$PATH" sh "$REPO_DIR/edit-grub/replace-grub.sh" "$target" 
 rc=$?
 set -e
 [ "$rc" -eq 0 ] || fail "replace-grub.sh with temp target exited $rc: $out"
-grep -q 'Try or Install ZhenTo' "$target" || fail 'temp GRUB target was not replaced'
+grep -q 'Try or Install KzhenTo' "$target" || fail 'temp GRUB target was not replaced'
 find "$TMP" -name 'grub-target.cfg.bak.*' | grep -q . || fail 'GRUB backup was not created in temp dir'
 ok "replace-grub.sh works on an explicit temp target and creates a backup there"
 

@@ -15,10 +15,10 @@
         - Requires an authenticated gh CLI (gh auth login); downloading drafts needs write access to the repo.
 
 .EXAMPLE
-    .\download-release.ps1 v0.1.1
+    .\download-release.ps1 v0.1.0
 
 .EXAMPLE
-    .\download-release.ps1 v0.1.1 zitzhen/zhenTo D:\out
+    .\download-release.ps1 v0.1.0 zitzhen/zhenTo D:\out
 #>
 param(
     [Parameter(Position = 0)][string]$Tag,
@@ -34,7 +34,7 @@ function Stop-WithError([string]$Message) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Tag)) {
-    Stop-WithError "Please provide a release tag, e.g. .\download-release.ps1 v0.1.1"
+    Stop-WithError "Please provide a release tag, e.g. .\download-release.ps1 v0.1.0"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
