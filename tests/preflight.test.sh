@@ -199,4 +199,47 @@ if grep -qE 'add-apt-repository|apt-get' "$MOCK_LOG"; then
 fi
 ok "host build does not add target PPAs or refresh apt"
 
+# 10. A classic single-squashfs ISO (Kubuntu 26.04.1) is accepted and the
+#     auto layer selection falls back to casper/filesystem.squashfs.
+CLASSIC_BIN="$TMP/classic-bin"
+cp -r "$MOCK_BIN" "$CLASSIC_BIN"
+cat >"$CLASSIC_BIN/xorriso" <<EOF
+#!/bin/sh
+echo "xorriso \$*" >> "$MOCK_LOG"
+case "\$*" in
+  *"-extract / "*)
+    take_next=0
+    for a in "\$@"; do
+      if [ "\$take_next" -eq 1 ]; then
+        mkdir -p "\$a/casper"
+        : > "\$a/casper/filesystem.squashfs"
+        break
+      fi
+      [ "\$a" = "/" ] && take_next=1
+    done
+    ;;
+  *"-report_el_torito as_mkisofs"*)
+    echo "--interval:local_fs:1d-2d::"
+    ;;
+esac
+EOF
+cat >"$CLASSIC_BIN/dd" <<EOF
+#!/bin/sh
+echo "dd \$*" >> "$MOCK_LOG"
+for a in "\$@"; do
+  case "\$a" in of=*) printf x > "\${a#of=}" ;; esac
+done
+EOF
+chmod +x "$CLASSIC_BIN/xorriso" "$CLASSIC_BIN/dd"
+: >"$MOCK_LOG"
+set +e
+out=$(PATH="$CLASSIC_BIN:$PATH" \
+    BASE_ISO="$TMP/fake.iso" OUT_DIR="$TMP/classic-out" WORK_DIR="$TMP/classic-work" \
+    bash "$REPO_DIR/build.sh" 2>&1)
+rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "classic ISO build exited $rc, expected 1: $out"
+case "$out" in *'Layers to modify: filesystem.squashfs'*) ;; *) fail "classic layer was not selected: $out" ;; esac
+ok "classic single-squashfs ISO selects casper/filesystem.squashfs"
+
 printf '\nAll preflight smoke tests passed.\n'

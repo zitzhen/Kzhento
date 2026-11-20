@@ -20,9 +20,10 @@
 #   SQUASHFS_COMP  Squashfs compression algorithm (default inherited from original layer, e.g. xz; zstd is much faster)
 #   SQUASHFS_BLOCK Squashfs block size (default inherited from original layer, usually 131072)
 #
-# Note: Ubuntu 26.04 desktop ISO uses layered squashfs (described in casper/install-sources.yaml).
-# By default only the base layer of the "default install source" is modified; the language layer
-# and enhanced-secureboot overlay layer are left untouched.
+# Note: some Ubuntu 26.04 desktop ISOs use layered squashfs (described in casper/install-sources.yaml),
+# while Kubuntu 26.04.1 uses a single casper/filesystem.squashfs. Both layouts are supported:
+# only the default base layer (or the single filesystem layer) is modified; language and
+# enhanced-secureboot overlay layers, when present, are left untouched.
 
 set -euo pipefail
 
@@ -435,13 +436,16 @@ patch_layer() {
         -comp "$comp" -b "$block" -noappend -no-progress -quiet
     mv -f "$WORK_DIR/$layer" "$sfs"
 
-    # Update the layer size (casper uses it to compute the memory needed by the overlay)
+    # Update the layer size (casper uses it to compute the memory needed by the overlay).
+    # The classic single-squashfs layout has filesystem.size but no install-sources.yaml.
     if [ -f "$size_file" ]; then
         old_size=$(tr -d '\n' <"$size_file")
         new_size=$(du -sb "$ROOT_DIR" | cut -f1)
         printf '%s\n' "$new_size" >"$size_file"
-        sed -i "s/^  size: ${old_size}$/  size: ${new_size}/" \
-            "$ISO_DIR/casper/install-sources.yaml"
+        if [ -f "$ISO_DIR/casper/install-sources.yaml" ]; then
+            sed -i "s/^  size: ${old_size}$/  size: ${new_size}/" \
+                "$ISO_DIR/casper/install-sources.yaml"
+        fi
     fi
 
     rm -rf "$ROOT_DIR"
@@ -468,7 +472,8 @@ main() {
     xorriso -osirrox on:auto_chmod_on -indev "$BASE_ISO" -extract / "$ISO_DIR" >/dev/null
 
     [ -f "$ISO_DIR/casper/install-sources.yaml" ] ||
-        die "This ISO has no casper/install-sources.yaml; it is not a supported Ubuntu desktop image"
+        [ -f "$ISO_DIR/casper/filesystem.squashfs" ] ||
+        die "This ISO has neither casper/install-sources.yaml nor casper/filesystem.squashfs; it is not a supported Ubuntu desktop image"
 
     # Extract the FAT partition used for UEFI boot (the original disc uses an "appended partition",
     # not an efi.img file)
@@ -486,15 +491,20 @@ main() {
 
     # Choose which layers to patch
     if [ "$PATCH_LAYERS" = "auto" ]; then
-        layer=$(detect_default_layer)
-        [ -n "$layer" ] || die "Cannot determine the default install source from install-sources.yaml"
-        layer_list=("$layer")
+        if [ -f "$ISO_DIR/casper/install-sources.yaml" ]; then
+            layer=$(detect_default_layer)
+            [ -n "$layer" ] || die "Cannot determine the default install source from install-sources.yaml"
+            layer_list=("$layer")
+            warn "Only the above base layer(s) are processed; language and enhanced-secureboot overlay layers are kept as-is"
+        else
+            log "No install-sources.yaml; using the classic single casper/filesystem.squashfs layer"
+            layer_list=("filesystem.squashfs")
+        fi
     else
         read -r -a layer_list <<<"$PATCH_LAYERS"
     fi
 
     log "Layers to modify: ${layer_list[*]}"
-    warn "Only the above base layer(s) are processed; language and enhanced-secureboot overlay layers are kept as-is"
     warn "casper/*.manifest are not regenerated (only affects installer package stats, not the install result)"
 
     for layer in "${layer_list[@]}"; do

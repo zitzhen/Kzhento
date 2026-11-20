@@ -59,8 +59,27 @@ extract_iso() {
         die "Cannot extract $1 from ISO"
 }
 extract_iso /boot/grub/grub.cfg "$TMP/grub.cfg"
-extract_iso /casper/install-sources.yaml "$TMP/install-sources.yaml"
 extract_iso /md5sum.txt "$TMP/md5sum.txt"
+
+# 3a. Layered ISOs describe the default squashfs in casper/install-sources.yaml;
+# Kubuntu 26.04.1 uses the classic single casper/filesystem.squashfs instead.
+xorriso -osirrox on:auto_chmod_on -indev "$ISO" \
+    -extract /casper/install-sources.yaml "$TMP/install-sources.yaml" >/dev/null 2>&1 || true
+if [ -s "$TMP/install-sources.yaml" ]; then
+    layer=$(awk '
+        /^- default: true/  { def = 1; next }
+        /^- default: false/ { def = 0; next }
+        def && /^  path: /  { sub(/^  path: /, ""); print; exit }
+    ' "$TMP/install-sources.yaml")
+    [ -n "$layer" ] || die "Cannot find default layer in casper/install-sources.yaml"
+    manifest_pairs=("casper/install-sources.yaml:$TMP/install-sources.yaml")
+    ok "layered ISO: detected $layer from install-sources.yaml"
+else
+    layer="filesystem.squashfs"
+    manifest_pairs=("casper/filesystem.squashfs:$TMP/filesystem.squashfs")
+    ok "classic ISO: using casper/filesystem.squashfs"
+fi
+extract_iso "/casper/$layer" "$TMP/$layer"
 
 # 4. GRUB menu must be the one shipped in this repository.
 cmp -s "$TMP/grub.cfg" "$REPO_DIR/edit-grub/grub.cfg" ||
@@ -68,7 +87,7 @@ cmp -s "$TMP/grub.cfg" "$REPO_DIR/edit-grub/grub.cfg" ||
 ok "GRUB menu matches repository config"
 
 # 5. Rebuild hash for a few extracted files from the ISO's own manifest.
-for pair in "boot/grub/grub.cfg:$TMP/grub.cfg" "casper/install-sources.yaml:$TMP/install-sources.yaml"; do
+for pair in "boot/grub/grub.cfg:$TMP/grub.cfg" "${manifest_pairs[@]}"; do
     iso_path=${pair%%:*}
     local_file=${pair#*:}
     expected=$(awk -v p="./$iso_path" '$2 == p { print $1; exit }' "$TMP/md5sum.txt")
@@ -78,14 +97,7 @@ for pair in "boot/grub/grub.cfg:$TMP/grub.cfg" "casper/install-sources.yaml:$TMP
     ok "ISO md5sum.txt covers $iso_path"
 done
 
-# 6. Locate the default casper layer and extract the in-image os-release.
-layer=$(awk '
-    /^- default: true/  { def = 1; next }
-    /^- default: false/ { def = 0; next }
-    def && /^  path: /  { sub(/^  path: /, ""); print; exit }
-' "$TMP/install-sources.yaml")
-[ -n "$layer" ] || die "Cannot find default layer in casper/install-sources.yaml"
-extract_iso "/casper/$layer" "$TMP/$layer"
+# 6. Read the in-image os-release from the selected casper layer.
 unsquashfs -cat "$TMP/$layer" /etc/os-release >"$TMP/os-release" 2>/dev/null ||
     die "Cannot read /etc/os-release from $layer"
 
