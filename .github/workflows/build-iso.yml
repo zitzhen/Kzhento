@@ -14,7 +14,7 @@ on:
       version:
         description: Version number (without the leading v, e.g. 0.1.0)
         required: true
-        default: "0.1.1"
+        default: "0.1.0"
       base_iso_url:
         description: Base ISO download URL
         required: true

@@ -19,7 +19,7 @@ bash tests/preflight.test.sh
 
 ## 版本真值
 
-产品版本统一为 `0.1.1`（`build.sh`、`edit-os-release/os-release` 的 `VERSION_ID`、`.github/workflows/build-iso.yml` 的 `inputs.version default`）。基础镜像为 **Kubuntu 26.04.1**（代码复制自 ZhenTo，脚本默认值与相关字符串尚未同步修改），`os-release` 的 `VERSION` 文案为 `26.04.1 (Resolute Raccoon)`。`check-version-consistency.sh` 负责防止这三处再次漂移。
+产品版本统一为 `0.1.0`（`build.sh`、`edit-os-release/os-release` 的 `VERSION_ID`、`.github/workflows/build-iso.yml` 的 `inputs.version default`）。基础镜像为 **Kubuntu 26.04.1**（代码复制自 ZhenTo，脚本默认值与相关字符串尚未同步修改），`os-release` 的 `VERSION` 文案为 `26.04.1 (Resolute Raccoon)`。`check-version-consistency.sh` 负责防止这三处再次漂移。
 
 ## 安全约定
 

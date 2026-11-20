@@ -30,7 +30,7 @@ SELF_DIR=$(cd "$(dirname "$0")" && pwd)
 SELF="$SELF_DIR/$(basename "$0")"
 
 BASE_ISO=${BASE_ISO:-/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso}
-VERSION=${VERSION:-0.1.1}
+VERSION=${VERSION:-0.1.0}
 VOLID=${VOLID:-"ZhenTo ${VERSION} amd64"}
 WORK_DIR=${WORK_DIR:-"$SELF_DIR/work"}
 OUT_DIR=${OUT_DIR:-"$SELF_DIR/out"}

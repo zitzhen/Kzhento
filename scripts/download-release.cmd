@@ -151,11 +151,11 @@ exit /b 0
 :usage
 echo Usage: download-release.cmd ^<tag^> [owner/name] [output dir]
 echo.
-echo   tag         Required, release git tag, e.g. v0.1.1
+echo   tag         Required, release git tag, e.g. v0.1.0
 echo   owner/name  Optional, full repository name; defaults to the current GitHub repo
 echo   output dir  Optional, defaults to .\[repo name]-[tag]
 echo.
 echo Examples:
-echo   download-release.cmd v0.1.1
-echo   download-release.cmd v0.1.1 zitzhen/zhenTo .\zhenTo-0.1.1
+echo   download-release.cmd v0.1.0
+echo   download-release.cmd v0.1.0 zitzhen/zhenTo .\zhenTo-0.1.0
 exit /b 1

@@ -12,7 +12,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 
 | | |
 |---|---|
-| **Current version** | 0.1.1 |
+| **Current version** | 0.1.0 |
 | **Base image** | Kubuntu 26.04.1 Desktop (amd64) |
 | **Firmware** | UEFI only (legacy BIOS is not supported) |
 | **License** | [AGPL-3.0-only](LICENSE) |
@@ -106,7 +106,7 @@ On success the ISO and its `.md5` file are produced under `out/`; the inherited 
 | Variable | Default | Purpose |
 |---|---|---|
 | `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | Source Kubuntu desktop ISO (inherited default; override it) |
-| `VERSION` | `0.1.1` | Product version (embedded in the ISO name and `os-release`) |
+| `VERSION` | `0.1.0` | Product version (embedded in the ISO name and `os-release`) |
 | `VOLID` | `ZhenTo <VERSION> amd64` | ISO volume label (inherited; override with `VOLID="Kzhento <VERSION> amd64"`, truncated to 32 characters) |
 | `WORK_DIR` | `<repo>/work` | Intermediate build directory |
 | `OUT_DIR` | `<repo>/out` | Output directory for the ISO |
@@ -141,8 +141,8 @@ Helper scripts are provided to download **all** assets of a release (including d
 
 ```bash
 # Requires: gh auth login (write access is needed for drafts)
-./scripts/download-release.sh v0.1.1
-./scripts/download-release.sh v0.1.1 zitzhen/Kzhento ./out   # explicit repo and output dir
+./scripts/download-release.sh v0.1.0
+./scripts/download-release.sh v0.1.0 zitzhen/Kzhento ./out   # explicit repo and output dir
 ```
 
 Windows users can use `scripts\download-release.ps1` (PowerShell) or `scripts\download-release.cmd`.
