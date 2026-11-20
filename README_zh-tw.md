@@ -180,6 +180,8 @@ bash tests/preflight.test.sh
 
 ## 參與貢獻
 
+詳細流程請見[貢獻指南（簡體中文）](CONTRIBUTING_zh-cn.md)或 [Contributing Guide (English)](CONTRIBUTING.md)。
+
 1. Fork https://github.com/zitzhen/Kzhento，從 `main` 建立分支。
 2. 進行變更，並保持版本在 `build.sh`、`edit-os-release/os-release` 與 `.github/workflows/build-iso.yml` 三處一致。
 3. 執行上述本機檢查。

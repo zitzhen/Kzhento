@@ -180,6 +180,8 @@ See [tests/README.md](tests/README.md) for details and safety notes.
 
 ## Contributing
 
+See the [Contributing Guide](CONTRIBUTING.md) for the full workflow (issue guidelines, DCO sign-off, version consistency, tests and PR checklist).
+
 1. Fork https://github.com/zitzhen/Kzhento and create a branch from `main`.
 2. Make your change, keeping the version consistent across `build.sh`, `edit-os-release/os-release`, and `.github/workflows/build-iso.yml`.
 3. Run the local checks above.
