@@ -42,6 +42,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 ## 特色
 
 - **品牌重塑** —— `/etc/os-release` 與 GRUB 開機選單是 Kzhento 的品牌入口（目前仍沿用繼承而來的 ZhenTo 字樣）。
+- **內建 Logo** —— 建置時從 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下載 Kzhento Logo（固定 commit + SHA256 檢查），安裝至 `/usr/share/backgrounds/kzhento/`， repository 中不再存放二進位圖片。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
 - **Kzhento 桌面安裝程式** —— 來自 [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) 的 `ubuntu-desktop-bootstrap` snap 已預置於映像中。在真實系統中直接安裝；在 `chroot` 內則透過一次性 systemd 服務於首次開機時完成安裝。
@@ -60,6 +61,8 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release 品牌資訊（Kzhento；沿用原有值）
 │   └── edit.sh               # 將檔案寫入 /etc/os-release
+├── edit-logo.sh/
+│   └── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
 ├── install-app/
 │   ├── ppa.list              # 建置時啟用的額外 PPA
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh
