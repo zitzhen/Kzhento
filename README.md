@@ -42,6 +42,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 ## Features
 
 - **Rebranded identity** — `/etc/os-release` and the GRUB boot menu are the branding points for Kzhento (currently still populated with the inherited ZhenTo strings).
+- **Bundled logo** — the Kzhento logo is downloaded from [kzhento-icon](https://github.com/zitzhen/kzhento-icon) at build time (pinned commit + SHA256 check) and installed under `/usr/share/backgrounds/kzhento/`, so no binary artwork is stored in this repository.
 - **UEFI-only image** — a single EFI system partition is appended to the ISO; boot entries are generated with `xorriso`.
 - **Developer tools preinstalled** — `curl`, `git`, `zsh`, and [patchsplit](https://github.com/zitzhen/patchsplit) (from the `ppa:zitzhen/patchsplit` PPA).
 - **Kzhento Desktop Installer** — the `ubuntu-desktop-bootstrap` snap from [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) is seeded into the image. On a live system it is installed directly; inside the `chroot` a one-shot systemd unit finishes the installation on first boot.
@@ -60,6 +61,8 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release branding (Kzhento; inherited values)
 │   └── edit.sh               # Install the file into /etc/os-release
+├── edit-logo.sh/
+│   └── edit-logo.sh          # Download + install Kzhento logo into the image
 ├── install-app/
 │   ├── ppa.list              # Extra PPAs to enable during the build
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh

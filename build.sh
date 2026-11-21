@@ -90,7 +90,7 @@ preflight_checks() {
     [ "$avail_gb" -ge 25 ] || die "Not enough disk space: ${avail_gb}G available (need >= 25G)"
 
     local f
-    for f in "$SELF_DIR/edit-os-release/edit.sh" "$SELF_DIR/edit-grub/replace-grub.sh" "$SELF_DIR/install-app/ppa.list"; do
+    for f in "$SELF_DIR/edit-os-release/edit.sh" "$SELF_DIR/edit-grub/replace-grub.sh" "$SELF_DIR/edit-logo.sh/edit-logo.sh" "$SELF_DIR/install-app/ppa.list"; do
         [ -f "$f" ] || die "Missing build input: $f"
     done
 
@@ -319,6 +319,21 @@ apply_os_release() {
 }
 
 # ---------------------------------------------------------------------------
+# Logo: download the artwork from kzhento-icon at build time and install it
+# ---------------------------------------------------------------------------
+apply_logo() {
+    local script="$SELF_DIR/edit-logo.sh/edit-logo.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-logo.sh/edit-logo.sh is missing, skipping logo"
+        return 0
+    }
+
+    log "Installing Kzhento logo"
+    sh "$script" "$ROOT_DIR" || die "Failed to install logo"
+}
+
+# ---------------------------------------------------------------------------
 # Boot menu: replace boot/grub/grub.cfg in the ISO tree with the config from edit-grub/
 # ---------------------------------------------------------------------------
 apply_grub() {
@@ -423,6 +438,7 @@ patch_layer() {
         /bin/bash /opt/zhento-build/build.sh --apps-only
 
     apply_os_release
+    apply_logo
 
     log "Cleaning up build-time artifacts"
     rm -rf "$ROOT_DIR/opt/zhento-build"
