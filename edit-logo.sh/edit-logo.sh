@@ -15,7 +15,10 @@
 
 set -e
 
-die() { printf 'XX  %s\n' "$*" >&2; exit 1; }
+die() {
+	printf 'XX  %s\n' "$*" >&2
+	exit 1
+}
 log() { printf '==> %s\n' "$*"; }
 
 # Pinned commit keeps builds reproducible. Change these three values as a set
@@ -31,11 +34,11 @@ eba6a63c01475fe3286b88a1c5eede6a6ccddae1260996afbfc80d78415dfc1f  kzhento_transp
 [ "$(id -u)" -eq 0 ] || die "root is required: sudo $0"
 
 if command -v curl >/dev/null 2>&1; then
-    fetch() { curl -fsSL --retry 3 -o "$2" "$1"; }
+	fetch() { curl -fsSL --retry 3 -o "$2" "$1"; }
 elif command -v wget >/dev/null 2>&1; then
-    fetch() { wget -q -O "$2" "$1"; }
+	fetch() { wget -q -O "$2" "$1"; }
 else
-    die "Need curl or wget to download the logo"
+	die "Need curl or wget to download the logo"
 fi
 
 target=${1:-/}
@@ -45,18 +48,18 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 for f in $FILES; do
-    log "Downloading $f from kzhento-icon@$LOGO_REF"
-    fetch "$RAW_BASE/$f" "$tmp/$f" || die "Failed to download $f"
-    [ -s "$tmp/$f" ] || die "Downloaded $f is empty"
+	log "Downloading $f from kzhento-icon@$LOGO_REF"
+	fetch "$RAW_BASE/$f" "$tmp/$f" || die "Failed to download $f"
+	[ -s "$tmp/$f" ] || die "Downloaded $f is empty"
 done
 
 printf '%s\n' "$SUMS" | (cd "$tmp" && sha256sum -c -) ||
-    die "Logo checksum verification failed"
+	die "Logo checksum verification failed"
 
 log "Installing logo to $dest"
 install -d -m 0755 "$dest"
 for f in $FILES; do
-    install -m 0644 "$tmp/$f" "$dest/$f"
+	install -m 0644 "$tmp/$f" "$dest/$f"
 done
 
 log "Done: $dest/kzhento.png, $dest/kzhento_transparent.png"
