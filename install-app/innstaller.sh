@@ -19,7 +19,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 # Install a fixed published release artifact only: no source checkout, no build,
 # no floating "latest" tag. Bump VERSION together with the upstream release.
-VERSION="1.0.2"
+VERSION="1.0.4"
 BASE_URL="https://github.com/zitzhen/kzhento-installer-prompt/releases/download/v${VERSION}"
 DEB_FILE="kzhento-installer-prompt_${VERSION}_amd64.deb"
 CHECKSUMS="SHA256SUMS"
