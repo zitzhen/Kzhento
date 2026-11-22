@@ -3,6 +3,11 @@
 work/
 out/
 
+# Logo sources downloaded by edit-logo.sh/edit-logo.sh and reused by the
+# branding steps. Pinned by sha256 in edit-logo.sh, so they are cache, not source.
+logo/
+__pycache__/
+
 # Ignore all ISO files
 *.iso
 *.z03
