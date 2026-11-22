@@ -171,10 +171,23 @@ grep -qx 'ImageDir=/usr/share/plymouth/themes/minimal' "$TMP/minimal.plymouth" |
     die "Boot theme does not point its ImageDir at its own directory"
 ok "boot theme installed: Kzhento (minimal)"
 
+# The theme's own frames are animation-NN.png: the two-step module draws those,
+# and edit-plymouth.sh installs the rendered mark under the name the theme file
+# declares. throbber-*.png only exists in the stock "spinner" theme, whose own
+# script consumes it, so it is checked there and nowhere else.
+animation=$(sed -n 's/^AnimationFile=//p' "$TMP/minimal.plymouth")
+case "$animation" in
+animation-*.png) ;;
+*) die "Boot theme does not declare an animation-NN.png frame: '${animation}'" ;;
+esac
+animation_dir=$(sed -n 's/^AnimationDir=//p' "$TMP/minimal.plymouth")
+animation_dir=${animation_dir:-usr/share/plymouth/themes/minimal}
+ok "boot theme declares its animation: $animation"
+
 for f in usr/share/plymouth/themes/minimal/watermark.png \
     usr/share/plymouth/themes/spinner/watermark.png \
     usr/share/plymouth/themes/spinner/throbber-0001.png \
-    usr/share/plymouth/themes/minimal/throbber-0001.png; do
+    "$animation_dir/$animation"; do
     unsquashfs -cat "$TMP/$layer" "/$f" >"$TMP/asset.png" 2>/dev/null ||
         die "Missing in image: /$f"
     [ "$(head -c 8 "$TMP/asset.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] ||
