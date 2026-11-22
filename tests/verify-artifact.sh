@@ -197,10 +197,19 @@ done
 
 # The spinner watermark used to be a symlink to the Ubuntu wordmark; it must be
 # a regular file now, or the boot screen follows whatever that pixmap becomes.
-[ "$(unsquashfs -lls "$TMP/$layer" /usr/share/plymouth/themes/spinner/watermark.png 2>/dev/null |
-    awk '{ print $1 }' | cut -c1)" = "-" ] ||
-    die "spinner watermark.png is still a symlink"
-ok "spinner watermark.png is a regular file"
+#
+# Asking unsquashfs for one path still lists the leading directories of that
+# path, so the entry has to be picked out by its exact name: the first line of
+# the listing is a directory, not the file.
+mode=$(unsquashfs -lls "$TMP/$layer" /usr/share/plymouth/themes/spinner/watermark.png 2>/dev/null |
+    sed -n 's/^\([^ ]*\) [^ ]* *[0-9]* [0-9-]* [0-9:]* squashfs-root\(.*\)$/\1 \2/p' |
+    awk '$2 == "/usr/share/plymouth/themes/spinner/watermark.png" { print $1; exit }')
+case "$mode" in
+-*) ok "spinner watermark.png is a regular file" ;;
+l*) die "spinner watermark.png is still a symlink" ;;
+"") die "spinner watermark.png is missing from the listing" ;;
+*) die "spinner watermark.png is not a regular file (mode $mode)" ;;
+esac
 
 # /usr/share/pixmaps/ubuntu-logo-text-dark.png is replaced in place, with the
 # upstream file kept next to it.
