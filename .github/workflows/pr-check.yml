@@ -89,6 +89,11 @@ jobs:
       - name: Login shell tests
         run: bash tests/terminal.test.sh
 
+      - name: Boot splash artwork tests
+        run: |
+          python3 -m pip install --quiet pillow
+          bash tests/render.test.sh
+
   secrets:
     runs-on: ubuntu-24.04
     steps:
