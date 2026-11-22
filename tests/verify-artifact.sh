@@ -222,13 +222,30 @@ done
 
 # default.plymouth must resolve to the Kzhento theme, otherwise the theme is
 # installed but never drawn.
-applied=$(unsquashfs -cat "$TMP/$layer" /etc/alternatives/default.plymouth 2>/dev/null) ||
-    die "Missing in image: /etc/alternatives/default.plymouth"
+#
+# The alternative is a symlink, and "unsquashfs -cat" follows it: asking for the
+# link returns the *contents* of the theme file it points at, never its target.
+# The target only appears in the listing, so read the mode and link text from
+# there. A real file or a dangling link must not pass either.
+plink=$(unsquashfs -lls "$TMP/$layer" /etc/alternatives/default.plymouth 2>/dev/null |
+    sed -n 's/^\([^ ]*\) [^ ]* *[0-9]* [0-9-]* [0-9:]* squashfs-root\(.*\)$/\1 \2/p' |
+    awk '$2 == "/etc/alternatives/default.plymouth" { print $1, $NF; exit }')
+case "$plink" in
+"") die "default.plymouth is missing from the listing" ;;
+l*) ;;
+*) die "default.plymouth is not a symlink (mode ${plink%% *})" ;;
+esac
+applied=${plink#* }
 case "$applied" in
 *plymouth/themes/minimal/minimal.plymouth) ;;
 *) die "default.plymouth does not point at the Kzhento theme: $applied" ;;
 esac
-ok "default.plymouth selects the Kzhento theme"
+# The link is relative and resolved inside the image, so the theme it names has
+# to exist there: a target that reads right but is missing still boots stock.
+unsquashfs -cat "$TMP/$layer" /usr/share/plymouth/themes/minimal/minimal.plymouth \
+    >/dev/null 2>&1 ||
+    die "default.plymouth points at $applied, which is missing from the image"
+ok "default.plymouth selects the Kzhento theme ($applied)"
 
 # Welcome Center strings. The catalogues live in their own locale directory;
 # a zh_CN catalogue filed under en/ would never be read.
