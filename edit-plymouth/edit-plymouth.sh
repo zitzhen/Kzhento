@@ -18,8 +18,11 @@
 #   2. overwrites the spinner frames and the watermark symlink in that theme,
 #      so the stock theme names keep working ("spinner" stays valid)
 #   3. installs a Kzhento theme of its own as /usr/share/plymouth/themes/minimal
-#      and selects it; the selection is applied by ../select-theme.sh, which
-#      also rebuilds the initramfs (the theme is copied into it at build time)
+#      (the two-step module draws animation-*.png and watermark.png from its
+#      ImageDir; the stock throbber frames are not carried over, they belong to
+#      the "spinner" script) and selects it; the selection is applied by
+#      ../select-theme.sh, which also rebuilds the initramfs (the theme is
+#      copied into it at build time)
 #
 # Usage:
 #   sudo ./edit-plymouth.sh                  # this system, or inside chroot
@@ -126,12 +129,18 @@ install -m 0644 "$THEME_FILE" "$THEME_DIR/minimal.plymouth"
 install -m 0644 "$WORK/watermark.png" "$THEME_DIR/watermark.png"
 # The two-step module reads its assets from ImageDir; carry over the ones the
 # stock theme keeps next to its frames (password prompt, keyboard, etc.).
+#
+# The frames are not carried over: throbber-*.png belongs to the stock theme's
+# own script, and two-step draws animation-*.png instead. One copy of the mark
+# is enough, because the icon does not turn; the stock frames only encoded the
+# rotation.
 for asset in "$SPINNER"/*; do
     case "${asset##*/}" in
     throbber-*.png | watermark.png | spinner.plymouth) continue ;;
     *.png | *.svg) install -m 0644 "$asset" "$THEME_DIR/${asset##*/}" ;;
     esac
 done
+install -m 0644 "$WORK/throbber.png" "$THEME_DIR/animation-0001.png"
 
 # ---------------------------------------------------------------------------
 # 3. Select the theme. update-alternatives keeps /etc/alternatives consistent;

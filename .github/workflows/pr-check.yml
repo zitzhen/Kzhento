@@ -89,6 +89,9 @@ jobs:
       - name: Login shell tests
         run: bash tests/terminal.test.sh
 
+      - name: Boot splash payload tests
+        run: bash tests/plymouth-payload.test.sh
+
       - name: Boot splash artwork tests
         run: |
           python3 -m pip install --quiet pillow

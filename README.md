@@ -164,6 +164,7 @@ The splash artwork is generated from the logo rather than shipped as a static fi
 Two details are worth knowing when changing this:
 
 - `watermark.png` in the stock `spinner` theme is a **dpkg symlink** to `/usr/share/pixmaps/ubuntu-logo-text-dark.png`. `edit-plymouth.sh` replaces it with a regular file, so the boot screen no longer depends on that pixmap, and `edit-pixmaps.sh` keeps the upstream file as `.zhento-orig`.
+- The Kzhento theme uses the `two-step` module, so it draws `animation-*.png` from its own `ImageDir`; the stock `spinner` theme's `throbber-*.png` frames are that theme's script assets and are deliberately **not** copied over. `edit-plymouth.sh` installs the rendered mark as `animation-0001.png`, and `tests/plymouth-payload.test.sh` keeps the theme file and the installer in agreement.
 - The theme only reaches the boot screen once it is baked into the **initramfs**, which is why `select-theme.sh` rebuilds it last, after the chroot is gone (it needs `/proc` and `/sys`).
 
 Each step is skipped with a warning, not a failure, when its inputs are absent — so an image without KDE still builds.
