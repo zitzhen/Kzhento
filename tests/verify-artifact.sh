@@ -156,4 +156,80 @@ cmp -s "$TMP/skel.zshrc" "$REPO_DIR/edit-etc-default-useradd/.zshrc" ||
     die "/etc/skel/.zshrc in ISO differs from edit-etc-default-useradd/.zshrc"
 ok "in-image /etc/skel/.zshrc matches the repository payload"
 
+# 9. Branding surfaces that are not files under /etc: the boot splash, the
+#    distro wordmark, the Welcome Center catalogues and the About page.
+#
+#    The artwork itself is generated from the logo at build time, so it is only
+#    checked for being a PNG of the expected size; its content is the render's
+#    business, and ../edit-plymouth/render.py is what is unit-checked.
+unsquashfs -cat "$TMP/$layer" /usr/share/plymouth/themes/minimal/minimal.plymouth \
+    >"$TMP/minimal.plymouth" 2>/dev/null ||
+    die "Missing in image: /usr/share/plymouth/themes/minimal/minimal.plymouth"
+grep -qx 'Name=Kzhento' "$TMP/minimal.plymouth" ||
+    die "Boot theme is not named Kzhento"
+grep -qx 'ImageDir=/usr/share/plymouth/themes/minimal' "$TMP/minimal.plymouth" ||
+    die "Boot theme does not point its ImageDir at its own directory"
+ok "boot theme installed: Kzhento (minimal)"
+
+for f in usr/share/plymouth/themes/minimal/watermark.png \
+    usr/share/plymouth/themes/spinner/watermark.png \
+    usr/share/plymouth/themes/spinner/throbber-0001.png \
+    usr/share/plymouth/themes/minimal/throbber-0001.png; do
+    unsquashfs -cat "$TMP/$layer" "/$f" >"$TMP/asset.png" 2>/dev/null ||
+        die "Missing in image: /$f"
+    [ "$(head -c 8 "$TMP/asset.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] ||
+        die "Not a PNG: /$f"
+    ok "present in image: /$f"
+done
+
+# The spinner watermark used to be a symlink to the Ubuntu wordmark; it must be
+# a regular file now, or the boot screen follows whatever that pixmap becomes.
+[ "$(unsquashfs -lls "$TMP/$layer" /usr/share/plymouth/themes/spinner/watermark.png 2>/dev/null |
+    awk '{ print $1 }' | cut -c1)" = "-" ] ||
+    die "spinner watermark.png is still a symlink"
+ok "spinner watermark.png is a regular file"
+
+# /usr/share/pixmaps/ubuntu-logo-text-dark.png is replaced in place, with the
+# upstream file kept next to it.
+for f in usr/share/pixmaps/ubuntu-logo-text-dark.png \
+    usr/share/pixmaps/ubuntu-logo-text-dark.png.zhento-orig; do
+    unsquashfs -cat "$TMP/$layer" "/$f" >/dev/null 2>&1 ||
+        die "Missing in image: /$f"
+    ok "present in image: /$f"
+done
+
+# default.plymouth must resolve to the Kzhento theme, otherwise the theme is
+# installed but never drawn.
+applied=$(unsquashfs -cat "$TMP/$layer" /etc/alternatives/default.plymouth 2>/dev/null) ||
+    die "Missing in image: /etc/alternatives/default.plymouth"
+case "$applied" in
+*plymouth/themes/minimal/minimal.plymouth) ;;
+*) die "default.plymouth does not point at the Kzhento theme: $applied" ;;
+esac
+ok "default.plymouth selects the Kzhento theme"
+
+# Welcome Center strings. The catalogues live in their own locale directory;
+# a zh_CN catalogue filed under en/ would never be read.
+for lang in en zh_CN; do
+    unsquashfs -cat "$TMP/$layer" "/usr/share/locale/$lang/LC_MESSAGES/kubuntu-notification-helper.mo" \
+        >"$TMP/$lang.mo" 2>/dev/null ||
+        die "Missing in image: /usr/share/locale/$lang/LC_MESSAGES/kubuntu-notification-helper.mo"
+    LC_ALL=C grep -aq 'K-Zhento' "$TMP/$lang.mo" ||
+        die "Welcome Center catalogue for $lang does not mention K-Zhento"
+    ok "Welcome Center catalogue present and rebranded: $lang"
+done
+
+unsquashfs -cat "$TMP/$layer" /etc/xdg/kcm-about-distrorc >"$TMP/kcm-about-distrorc" 2>/dev/null ||
+    die "Missing in image: /etc/xdg/kcm-about-distrorc"
+grep -qx 'Name=K-Zhento' "$TMP/kcm-about-distrorc" ||
+    die "About this System name is not K-Zhento"
+grep -qx 'LogoPath=start-here-kde' "$TMP/kcm-about-distrorc" ||
+    die "About this System logo is not start-here-kde"
+ok "About this System branded via /etc/xdg/kcm-about-distrorc"
+
+# os-release LOGO= must agree with the icon the About page asks for.
+grep -qx 'LOGO=start-here-kde' "$TMP/os-release" ||
+    die "/etc/os-release does not set LOGO=start-here-kde"
+ok "os-release LOGO matches the About page icon"
+
 printf '\nAll artifact checks passed for %s\n' "$ISO"
