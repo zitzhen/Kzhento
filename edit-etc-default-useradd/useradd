@@ -1,0 +1,30 @@
+# /etc/default/useradd - defaults for accounts created after installation
+#
+# Shipped by Kzhento: every account created later (installer, useradd, adduser)
+# gets zsh as its login shell instead of the upstream /bin/sh.
+#
+# edit-etc-default-useradd.sh overwrites /etc/default/useradd with this file
+# as-is, without merging. It only affects new accounts: existing users keep
+# their current login shell, which is what edit-terminal/edit-terminal.sh is for.
+
+# Login shell for new accounts when neither `useradd -s` nor
+# /etc/adduser.conf overrides it.
+#
+# Debian ships /bin/sh here ("useradd is a low level utility and should be as
+# general as possible"), Ubuntu ships /bin/bash. Kzhento ships zsh because the
+# image installs the zsh package and every account gets the .zshrc below.
+SHELL=/bin/zsh
+
+# Skeleton copied into every new home directory.
+# edit-terminal.sh installs /etc/skel/.zshrc (Starship) into this directory,
+# so new accounts automatically get the Starship prompt.
+SKEL=/etc/skel
+
+# Every other value stays at the shadow/Debian default and is therefore left
+# commented out, so useradd(8) keeps its built-in behaviour:
+#
+#GROUP=100          # group for `useradd -n`, 100=users on Debian systems
+#HOME=/home         # home directory prefix
+#INACTIVE=-1        # days after password expiry before the account is disabled
+#EXPIRE=            # account expiry date, unset = never expires
+#CREATE_MAIL_SPOOL=no

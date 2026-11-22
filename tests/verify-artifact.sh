@@ -124,4 +124,30 @@ for leftover in opt/zhento-build/build.sh usr/sbin/policy-rc.d; do
     ok "no build residue: /$leftover"
 done
 
+# 8. Login shell packaging: root and every regular account must end up on zsh,
+#    before and after installation.
+unsquashfs -cat "$TMP/$layer" /etc/passwd >"$TMP/passwd" 2>/dev/null ||
+    die "Cannot read /etc/passwd from $layer"
+awk -F: '
+    NF != 7 { next }
+    $3 == 0 || $3 >= 1000 { n++; if ($7 != "/bin/zsh") bad = bad " " $1 "(" $7 ")" }
+    END {
+        if (n == 0) { print "no account to check"; exit 1 }
+        if (bad != "") { print "not on zsh:" bad; exit 1 }
+    }
+' "$TMP/passwd" || die "root or a regular account in the ISO does not use /bin/zsh"
+ok "root and every regular account use /bin/zsh"
+
+unsquashfs -cat "$TMP/$layer" /etc/default/useradd >"$TMP/useradd" 2>/dev/null ||
+    die "Missing in image: /etc/default/useradd"
+grep -qx 'SHELL=/bin/zsh' "$TMP/useradd" ||
+    die "/etc/default/useradd does not default new accounts to /bin/zsh"
+ok "/etc/default/useradd gives new accounts /bin/zsh"
+
+unsquashfs -cat "$TMP/$layer" /etc/skel/.zshrc >"$TMP/skel.zshrc" 2>/dev/null ||
+    die "Missing in image: /etc/skel/.zshrc"
+cmp -s "$TMP/skel.zshrc" "$REPO_DIR/edit-etc-default-useradd/.zshrc" ||
+    die "/etc/skel/.zshrc in ISO differs from edit-etc-default-useradd/.zshrc"
+ok "in-image /etc/skel/.zshrc matches the repository payload"
+
 printf '\nAll artifact checks passed for %s\n' "$ISO"

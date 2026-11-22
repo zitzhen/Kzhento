@@ -4,4 +4,6 @@
 *.yaml      text eol=lf
 *.cfg       text eol=lf
 os-release  text eol=lf
+useradd     text eol=lf
+.zshrc      text eol=lf
 *.md        text eol=lf
