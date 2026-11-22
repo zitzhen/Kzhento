@@ -10,6 +10,7 @@
 #     nologin accounts, backs up existing .zshrc files and installs the payload
 #     into /etc/skel and the changed home directories
 #   - edit-terminal.sh fails fast on a missing zsh, passwd or .zshrc payload
+#   - neither script reports success when its write did not take effect
 #   - edit-etc-default-useradd.sh overwrites the target with SHELL=/bin/zsh
 #
 # No real system files are touched: `id -u` is mocked, every target is a
@@ -55,9 +56,11 @@ make_root() {
 root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
 systemd-network:x:998:998:systemd Network Management:/:/usr/sbin/nologin
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
 oliver:x:1000:1000:Oliver Lin:/home/oliver:/bin/bash
 svc:x:1001:1001:Service Account:/home/svc:/usr/sbin/nologin
 missing:x:1002:1002:No Home:/home/missing:/bin/bash
+toor:x:0:0:Root Alias:/root:/bin/sh
 EOF
     printf '#!/bin/sh\n' >"$root/bin/zsh"
     chmod +x "$root/bin/zsh"
@@ -130,6 +133,10 @@ grep -q '^svc:x:1001:1001:Service Account:/home/svc:/usr/sbin/nologin$' "$root/e
     fail "nologin account was switched away from nologin"
 grep -q '^missing:x:1002:1002:No Home:/home/missing:/bin/zsh$' "$root/etc/passwd" ||
     fail "account without a home directory is not switched"
+grep -q '^nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin$' "$root/etc/passwd" ||
+    fail "the system account nobody was switched"
+grep -q '^toor:x:0:0:Root Alias:/root:/bin/sh$' "$root/etc/passwd" ||
+    fail "a uid-0 alias other than root was switched"
 ok "only root and regular accounts on real shells are switched to zsh"
 
 # 6. The payload lands in /etc/skel and in the existing home directories only.
@@ -197,5 +204,63 @@ set -e
 case "$out" in *'SHELL=/bin/zsh missing'*) ;; *) fail "payload guard diagnostic missing: $out" ;; esac
 grep -q '^SHELL=/bin/sh$' "$root/etc/default/useradd" || fail "target was overwritten by an empty payload"
 ok "a payload without SHELL=/bin/zsh is refused"
+
+# 13. A rewrite that cannot be committed is an error, not a success message. The
+#     harness skips the passwd commit step in a copy of the script, which is
+#     what a non-root chroot amounts to from the script's point of view: it must
+#     exit 1 and leave the old passwd intact instead of printing "Done!".
+root="$TMP/not-committed"
+make_root "$root"
+mkdir -p "$TMP/terminal"
+cp "$TERMINAL" "$TMP/terminal/edit-terminal.sh"
+sabotaged="$TMP/terminal/edit-terminal.sh"
+sed 's|^\(    mv -f "\$staged" "\$passwd_file"\).*|    continue|' \
+    "$sabotaged" >"$sabotaged.new"
+grep -q '^    continue$' "$sabotaged.new" ||
+    fail "could not build the sabotaged copy of edit-terminal.sh"
+mv -f "$sabotaged.new" "$sabotaged"
+before=$(cksum "$root/etc/passwd")
+set +e
+out=$(PATH="$ROOT_BIN:$PATH" ZSHRC_SRC="$ZSHRC" sh "$sabotaged" "$root" 2>&1)
+rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "an uncommitted passwd rewrite exited $rc, expected 1"
+case "$out" in *'did not take effect'*) ;; *) fail "uncommitted-rewrite diagnostic missing: $out" ;; esac
+[ "$before" = "$(cksum "$root/etc/passwd")" ] ||
+    fail "the passwd changed even though the rewrite could not be committed"
+ok "an uncommitted passwd rewrite fails instead of reporting success"
+
+# 14. edit-etc-default-useradd.sh also refuses to report success it did not get.
+# The payload copy onto the target is dropped while the rest of the script
+# still runs; the read-back must catch it instead of printing a "Done!" for a
+# target nothing wrote.
+root="$TMP/useradd-not-committed"
+mkdir -p "$root/etc/default"
+printf 'SHELL=/bin/sh\n' >"$root/etc/default/useradd"
+mkdir -p "$TMP/userscript"
+cp "$USERADD" "$TMP/userscript/edit-etc-default-useradd.sh"
+cp "$REPO_DIR/edit-etc-default-useradd/useradd" "$TMP/userscript/useradd"
+sabotaged="$TMP/userscript/edit-etc-default-useradd.sh"
+python3 - "$sabotaged" <<'PYEOF'
+import sys
+path = sys.argv[1]
+src = open(path).read()
+block = """cp -f useradd "$target" || {
+    echo "copy fail error!" >&2
+    exit 1
+}"""
+assert block in src, "unexpected cp block in edit-etc-default-useradd.sh"
+# Neutralise only the copy: the read-back that follows must still run.
+open(path, "w").write(src.replace(block, ': # sabotaged: the copy never runs'))
+PYEOF
+grep -q '^: # sabotaged: the copy never runs$' "$sabotaged" ||
+    fail "could not build the sabotaged copy of edit-etc-default-useradd.sh"
+set +e
+out=$(PATH="$ROOT_BIN:$PATH" sh "$sabotaged" "$root/etc/default/useradd" 2>&1)
+rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "an uncommitted useradd write exited $rc, expected 1"
+case "$out" in *'did not take effect'*) ;; *) fail "useradd uncommitted-write diagnostic missing: $out" ;; esac
+ok "edit-etc-default-useradd.sh fails when the target was not replaced"
 
 printf '\nAll login-shell tests passed.\n'

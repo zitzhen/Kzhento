@@ -125,17 +125,23 @@ for leftover in opt/zhento-build/build.sh usr/sbin/policy-rc.d; do
 done
 
 # 8. Login shell packaging: root and every regular account must end up on zsh,
-#    before and after installation.
+#    before and after installation. Accounts are reported one per line so a
+#    single offender (often just root) is not buried behind the others.
+#    "nobody" (65534) is a system account and keeps its nologin shell.
 unsquashfs -cat "$TMP/$layer" /etc/passwd >"$TMP/passwd" 2>/dev/null ||
     die "Cannot read /etc/passwd from $layer"
-awk -F: '
+if ! awk -F: '
     NF != 7 { next }
-    $3 == 0 || $3 >= 1000 { n++; if ($7 != "/bin/zsh") bad = bad " " $1 "(" $7 ")" }
+    $3 == 65534 { next }
+    $3 == 0 || $3 >= 1000 { n++; if ($7 != "/bin/zsh") { bad++; print "    " $1 " has " $7 } }
     END {
-        if (n == 0) { print "no account to check"; exit 1 }
-        if (bad != "") { print "not on zsh:" bad; exit 1 }
+        if (n == 0) { print "    no account to check"; exit 1 }
+        if (bad != 0) exit 1
     }
-' "$TMP/passwd" || die "root or a regular account in the ISO does not use /bin/zsh"
+' "$TMP/passwd" >"$TMP/offenders" 2>&1; then
+    cat "$TMP/offenders" >&2
+    die "root or a regular account in the ISO does not use /bin/zsh"
+fi
 ok "root and every regular account use /bin/zsh"
 
 unsquashfs -cat "$TMP/$layer" /etc/default/useradd >"$TMP/useradd" 2>/dev/null ||

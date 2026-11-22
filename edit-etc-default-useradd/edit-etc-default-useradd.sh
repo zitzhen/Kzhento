@@ -70,4 +70,11 @@ chmod 0644 "$target" || {
     exit 1
 }
 
+# cp -f onto an unwritable target can leave the old content behind, so read it
+# back: never report a success the caller did not actually get.
+if [ "$(sed -n 's/^SHELL=//p' "$target" | tail -n 1)" != "/bin/zsh" ]; then
+    echo "replace $target did not take effect, exiting" >&2
+    exit 1
+fi
+
 echo "Done! Edit /etc/default/useradd OK! -> $target (SHELL=$shell)"
