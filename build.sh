@@ -90,7 +90,12 @@ preflight_checks() {
     [ "$avail_gb" -ge 25 ] || die "Not enough disk space: ${avail_gb}G available (need >= 25G)"
 
     local f
-    for f in "$SELF_DIR/edit-os-release/edit.sh" "$SELF_DIR/edit-grub/replace-grub.sh" "$SELF_DIR/edit-logo.sh/edit-logo.sh" "$SELF_DIR/install-app/ppa.list"; do
+    for f in "$SELF_DIR/edit-os-release/edit.sh" "$SELF_DIR/edit-grub/replace-grub.sh" \
+        "$SELF_DIR/edit-logo.sh/edit-logo.sh" "$SELF_DIR/install-app/ppa.list" \
+        "$SELF_DIR/edit-terminal/edit-terminal.sh" \
+        "$SELF_DIR/edit-etc-default-useradd/edit-etc-default-useradd.sh" \
+        "$SELF_DIR/edit-etc-default-useradd/useradd" \
+        "$SELF_DIR/edit-etc-default-useradd/.zshrc"; do
         [ -f "$f" ] || die "Missing build input: $f"
     done
 
@@ -301,6 +306,56 @@ EOS
 }
 
 # ---------------------------------------------------------------------------
+# Default login shell for accounts created after installation:
+# /etc/default/useradd gets Kzhento's SHELL=/bin/zsh. Runs on the host against
+# $ROOT_DIR, so nothing extra is copied into the image.
+# ---------------------------------------------------------------------------
+apply_useradd_defaults() {
+    local src="$SELF_DIR/edit-etc-default-useradd/edit-etc-default-useradd.sh"
+
+    [ -f "$src" ] || {
+        warn "edit-etc-default-useradd/edit-etc-default-useradd.sh is missing, skipping /etc/default/useradd"
+        return 0
+    }
+
+    log "Writing /etc/default/useradd (new accounts use zsh)"
+    sh "$src" "$ROOT_DIR/etc/default/useradd" ||
+        die "Failed to write /etc/default/useradd"
+}
+
+# ---------------------------------------------------------------------------
+# Existing accounts: rewrite the login shell in /etc/passwd to zsh and install
+# the Kzhento .zshrc (Starship) into /etc/skel and every existing home
+# directory. Runs inside the chroot as root so the passwd it edits is the
+# image's own. Both payload trees go under /opt/zhento-build and are deleted
+# with the rest of the build-time artifacts, so nothing extra ships in the
+# image.
+# ---------------------------------------------------------------------------
+apply_terminal() {
+    local src="$SELF_DIR/edit-terminal"
+    local dst=/opt/zhento-build/edit-terminal
+    local config_src="$SELF_DIR/edit-etc-default-useradd"
+    local config_dst=/opt/zhento-build/edit-etc-default-useradd
+
+    [ -f "$src/edit-terminal.sh" ] || {
+        warn "edit-terminal/edit-terminal.sh is missing, skipping login shells"
+        return 0
+    }
+    [ -f "$config_src/.zshrc" ] || {
+        warn "edit-etc-default-useradd/.zshrc is missing, skipping login shells"
+        return 0
+    }
+
+    log "Switching existing accounts to zsh and installing .zshrc"
+    rm -rf "$ROOT_DIR$dst" "$ROOT_DIR$config_dst"
+    cp -a "$src" "$ROOT_DIR$dst"
+    cp -a "$config_src" "$ROOT_DIR$config_dst"
+    chroot "$ROOT_DIR" /bin/sh -c \
+        "cd $dst && ZSHRC_SRC=$config_dst/.zshrc ./edit-terminal.sh" ||
+        die "Failed to switch login shells to zsh"
+}
+
+# ---------------------------------------------------------------------------
 # Branding: copy edit-os-release/ into the chroot and run it to rewrite the image's os-release
 # ---------------------------------------------------------------------------
 apply_os_release() {
@@ -439,6 +494,8 @@ patch_layer() {
 
     apply_os_release
     apply_logo
+    apply_useradd_defaults
+    apply_terminal
 
     log "Cleaning up build-time artifacts"
     rm -rf "$ROOT_DIR/opt/zhento-build"
