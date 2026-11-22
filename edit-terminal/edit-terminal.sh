@@ -8,8 +8,9 @@
 # the Starship prompt:
 #
 #   /etc/passwd        login shell of root and of every regular account
-#                      (uid >= 1000) becomes /bin/zsh; system accounts and
-#                      accounts on nologin/false shells are left alone
+#                      (uid >= 1000) becomes /bin/zsh; system accounts,
+#                      nobody (65534) and accounts on nologin/false shells
+#                      are left alone
 #   /etc/skel/.zshrc   template for accounts created later
 #   <home>/.zshrc      for the accounts above; an existing file is kept as
 #                      .zshrc.bak.<timestamp> so user customisations survive
@@ -80,32 +81,58 @@ fi
 
 # One pass over passwd rewrites the shell column and records "uid:gid:home"
 # for the accounts that were changed, so the .zshrc copies use the right owner.
-tmp="$passwd_file.zhento.$$"
-homes="$passwd_file.homes.$$"
-trap 'rm -f "$tmp" "$homes"' EXIT HUP INT TERM
-: >"$homes" || {
-    echo "write $homes fail error!" >&2
-    exit 1
-}
-
-awk -F: -v OFS=: -v homes="$homes" '
-    BEGIN { n = split("nologin false sync halt shutdown", bad, " ") }
-    {
-        # name:passwd:uid:gid:gecos:home:shell - keep anything unexpected as-is.
-        if (NF == 7 && $3 ~ /^[0-9]+$/ && $6 ~ /^\//) {
+#
+# accounts() lists the logins that are switched: root and regular accounts
+# (uid >= 1000) whose shell is a real one. System accounts, nobody (65534) and
+# anything on nologin/false/sync/halt/shutdown are left alone.
+# shellmap() turns that output into the "uid:gid:home" lines used below. Both
+# are fed from the same file, so the write-back check re-derives the account
+# list instead of trusting what the rewrite did.
+accounts() {
+    awk -F: '
+        BEGIN { n = split("nologin false sync halt shutdown", bad, " ") }
+        {
+            # name:passwd:uid:gid:gecos:home:shell - skip anything unexpected,
+            # including duplicate uid 0 accounts: only the real root ($1=="root")
+            # is switched, so a shadowing alias never becomes zsh.
+            if (NF != 7 || $3 !~ /^[0-9]+$/ || $6 !~ /^\//) next
             skip = 0
             for (i = 1; i <= n; i++) {
                 if (index($7, bad[i]) > 0) skip = 1
             }
-            if (!skip && ($3 + 0 == 0 || $3 + 0 >= 1000)) {
-                $7 = "/bin/zsh"
-                print $3 ":" $4 ":" $6 > homes
-            }
+            if (skip) next
+            if ($3 + 0 == 0) { if ($1 == "root") print; next }
+            if ($3 + 0 >= 1000) print
         }
-        print
-    }
+    ' "$1"
+}
+shellmap() {
+    awk -F: '{ print $3 ":" $4 ":" $6 }'
+}
+
+tmp="$passwd_file.zhento.$$"
+homes="$passwd_file.homes.$$"
+want="$passwd_file.want.$$"
+trap 'rm -f "$tmp" "$homes" "$want"' EXIT HUP INT TERM
+accounts "$passwd_file" >"$want" || {
+    echo "list accounts fail error!" >&2
+    exit 1
+}
+if [ ! -s "$want" ]; then
+    echo "no account to switch in $passwd_file, exiting" >&2
+    exit 1
+fi
+
+awk -F: -v OFS=: -v list="$want" '
+    BEGIN { while ((getline line < list) > 0) { split(line, f, ":"); switch_[f[1]] = 1 } }
+    ($1 in switch_) { $7 = "/bin/zsh" }
+    { print }
 ' "$passwd_file" >"$tmp" || {
     echo "rewrite fail error!" >&2
+    exit 1
+}
+shellmap <"$want" >"$homes" || {
+    echo "write $homes fail error!" >&2
     exit 1
 }
 
@@ -132,37 +159,70 @@ while IFS=: read -r uid gid home || [ -n "$uid" ]; do
     if [ -z "$home" ] || [ "$home" = "/" ] || [ ! -d "$root$home" ]; then
         continue
     fi
-    dir="$root$home"
-    if [ "$dir" = "$skel_dir" ]; then
+    if [ "$home" = "/etc/skel" ]; then
         continue
     fi
+    dir="$root$home"
     if [ -f "$dir/.zshrc" ]; then
         cp -f "$dir/.zshrc" "$dir/.zshrc.bak.$stamp" || {
             echo "backup $dir/.zshrc fail error!" >&2
             exit 1
         }
         chown "$uid:$gid" "$dir/.zshrc.bak.$stamp" 2>/dev/null || true
-        chmod 0644 "$dir/.zshrc.bak.$stamp" || true
+        chmod 0644 "$dir/.zshrc.bak.$stamp" || {
+            echo "chmod $dir/.zshrc.bak.$stamp fail error!" >&2
+            exit 1
+        }
     fi
     cp -f "$zshrc_src" "$dir/.zshrc" || {
         echo "copy .zshrc to $dir fail error!" >&2
         exit 1
     }
     chown "$uid:$gid" "$dir/.zshrc" 2>/dev/null || true
-    chmod 0644 "$dir/.zshrc" || true
+    chmod 0644 "$dir/.zshrc" || {
+        echo "chmod $dir/.zshrc fail error!" >&2
+        exit 1
+    }
     count=$((count + 1))
 done <"$homes"
 
 # Swap the rewritten passwd in last, so a failure above never leaves the
-# system with a half-updated shell table.
+# system with a half-updated shell table. A non-root caller (a chroot that was
+# not entered as uid 0, for example) cannot replace /etc/passwd at all, so
+# write to a scratch file in the same directory and rename it into place: the
+# rename either happened or not, and the read-back below proves which.
+staged="$passwd_file.zhento.new.$$"
+trap 'rm -f "$tmp" "$homes" "$want" "$staged"' EXIT HUP INT TERM
 chmod 0644 "$tmp" || {
     echo "chmod fail error!" >&2
     exit 1
 }
-mv -f "$tmp" "$passwd_file" || {
-    echo "replace $passwd_file fail error!" >&2
+base_inode=$(ls -i "$passwd_file" 2>/dev/null | awk '{print $1}')
+# Two attempts: a transient write failure retries once; a permission problem
+# fails both times and is then reported by the read-back below.
+for _ in 1 2; do
+    cp -f "$tmp" "$staged" 2>/dev/null || continue
+    mv -f "$staged" "$passwd_file" 2>/dev/null || continue
+    now_inode=$(ls -i "$passwd_file" 2>/dev/null | awk '{print $1}')
+    [ "$now_inode" != "$base_inode" ] || continue
+    if awk -F: -v list="$want" '
+        BEGIN { while ((getline line < list) > 0) { split(line, f, ":"); switch_[f[1]] = 1 } }
+        NF != 7 || !($1 in switch_) || $7 == "/bin/zsh" { next }
+        { bad = 1 }
+        END { exit bad }
+    ' "$passwd_file" 2>/dev/null; then
+        break
+    fi
+done
+rm -f "$staged"
+if ! awk -F: -v list="$want" '
+    BEGIN { while ((getline line < list) > 0) { split(line, f, ":"); switch_[f[1]] = 1 } }
+    NF == 7 && ($1 in switch_) && $7 != "/bin/zsh" { bad = bad " " $1 }
+    END { if (bad != "") { print "not on zsh:" bad; exit 1 } }
+' "$passwd_file"; then
+    echo "replace $passwd_file did not take effect, exiting" >&2
     exit 1
-}
+fi
 
 echo "Done! Edit login shells OK! -> $passwd_file"
 echo "Done! Install .zshrc OK! -> $skel_dir/.zshrc and $count home directory(ies)"

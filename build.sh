@@ -347,12 +347,23 @@ apply_terminal() {
     }
 
     log "Switching existing accounts to zsh and installing .zshrc"
+    # The script rewrites <root>/etc/passwd; a chroot that is not running as
+    # uid 0 silently cannot do that, so check the identity explicitly instead
+    # of trusting a success message that never happened.
+    chroot_uid=$(chroot "$ROOT_DIR" /bin/sh -c 'id -u') ||
+        die "Cannot run a command inside the chroot"
+    [ "$chroot_uid" = 0 ] ||
+        die "chroot runs as uid $chroot_uid, not 0; /etc/passwd cannot be rewritten"
+    log "chroot runs as uid 0, rewriting /etc/passwd is allowed"
     rm -rf "$ROOT_DIR$dst" "$ROOT_DIR$config_dst"
     cp -a "$src" "$ROOT_DIR$dst"
     cp -a "$config_src" "$ROOT_DIR$config_dst"
-    chroot "$ROOT_DIR" /bin/sh -c \
-        "cd $dst && ZSHRC_SRC=$config_dst/.zshrc ./edit-terminal.sh" ||
+    chroot "$ROOT_DIR" /usr/bin/env -i \
+        HOME=/root TERM=dumb LC_ALL=C.UTF-8 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+        ZSHRC_SRC="$config_dst/.zshrc" /bin/sh -c "cd $dst && ./edit-terminal.sh" ||
         die "Failed to switch login shells to zsh"
+    grep -q '^root:[^:]*:0:0:[^:]*:/root:/bin/zsh$' "$ROOT_DIR/etc/passwd" ||
+        die "root is still not on /bin/zsh in $ROOT_DIR/etc/passwd after edit-terminal.sh"
 }
 
 # ---------------------------------------------------------------------------
