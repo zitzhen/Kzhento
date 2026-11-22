@@ -67,6 +67,7 @@ Closes #
 - [ ] `node --test tests/*.test.js` passes
 - [ ] `tests/check-version-consistency.sh` passes — `VERSION` in `build.sh` matches `VERSION_ID` in `edit-os-release/os-release`
 - [ ] `tests/preflight.test.sh` passes
+- [ ] `tests/terminal.test.sh` passes
 - [ ] No secrets / credentials / tokens committed (gitleaks)
 - [ ] Every commit is signed with `git commit -s`, and the `Signed-off-by` email is a real address (not noreply), per the DCO check
 - [ ] When build artifacts are affected, ISO / MD5 filenames match the version

@@ -67,6 +67,7 @@ Closes #
 - [ ] `node --test tests/*.test.js` 通过
 - [ ] `tests/check-version-consistency.sh` 通过——`build.sh` 的 `VERSION` 与 `edit-os-release/os-release` 的 `VERSION_ID` 一致
 - [ ] `tests/preflight.test.sh` 通过
+- [ ] `tests/terminal.test.sh` 通过
 - [ ] 未提交任何密钥 / 凭据 / token（gitleaks）
 - [ ] 所有 commit 已用 `git commit -s` 签名，且 `Signed-off-by` 邮箱是真实邮箱（非 noreply），符合 DCO 检查
 - [ ] 涉及构建产物时，已核对 ISO / MD5 命名与版本号

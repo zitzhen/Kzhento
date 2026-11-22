@@ -45,6 +45,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 - **Bundled logo** — the Kzhento logo is downloaded from [kzhento-icon](https://github.com/zitzhen/kzhento-icon) at build time (pinned commit + SHA256 check) and installed under `/usr/share/backgrounds/kzhento/`, so no binary artwork is stored in this repository.
 - **UEFI-only image** — a single EFI system partition is appended to the ISO; boot entries are generated with `xorriso`.
 - **Developer tools preinstalled** — `curl`, `git`, `zsh`, and [patchsplit](https://github.com/zitzhen/patchsplit) (from the `ppa:zitzhen/patchsplit` PPA).
+- **zsh for every account** — existing accounts are switched to `/bin/zsh` with a Starship-enabled `.zshrc`, and `/etc/default/useradd` gives new accounts the same shell.
 - **Kzhento Desktop Installer** — the `ubuntu-desktop-bootstrap` snap from [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) is seeded into the image. On a live system it is installed directly; inside the `chroot` a one-shot systemd unit finishes the installation on first boot.
 - **Layer-aware patching** — only the base squashfs layer of the default install source is modified. Language and enhanced-secureboot overlay layers are left untouched.
 - **Checksums and verification** — `md5sum.txt` is regenerated, and CI publishes MD5 and SHA256 files for every release.
@@ -61,15 +62,21 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release branding (Kzhento; inherited values)
 │   └── edit.sh               # Install the file into /etc/os-release
+├── edit-terminal/
+│   └── edit-terminal.sh      # Switch every existing account to zsh and install the Kzhento .zshrc
 ├── edit-logo.sh/
 │   └── edit-logo.sh          # Download + install Kzhento logo into the image
+├── edit-etc-default-useradd/
+│   ├── edit-etc-default-useradd.sh # Write SHELL=/bin/zsh into /etc/default/useradd (new accounts)
+│   ├── useradd               # Kzhento /etc/default/useradd
+│   └── .zshrc                # Kzhento ~/.zshrc with the Starship prompt
 ├── install-app/
 │   ├── ppa.list              # Extra PPAs to enable during the build
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh
 │   └── Installer.sh          # Desktop Installer (snap) setup
 ├── scripts/
 │   └── download-release.*    # Download all assets of a GitHub release (sh / ps1 / cmd)
-├── tests/                    # Four-layer smoke tests (see tests/README.md)
+├── tests/                    # Five-layer smoke tests (see tests/README.md)
 └── .github/                  # Issue/PR templates, CI workflows, auto-labeling
 ```
 
@@ -120,6 +127,16 @@ On success the ISO and its `.md5` file are produced under `out/`; the inherited 
 
 The build script refuses to run if `VERSION` does not match `edit-os-release/os-release`, so branding never drifts from the release number.
 
+### Default Shell
+
+Every account on the image uses **zsh**, with the Starship prompt initialised from `~/.zshrc`:
+
+- `edit-terminal/edit-terminal.sh` runs inside the `chroot` and rewrites `/etc/passwd`: the login shell of `root` and of every regular account (uid ≥ 1000) becomes `/bin/zsh`. System accounts and accounts already pinned to `nologin`/`false` are left alone.
+- The same script installs `edit-etc-default-useradd/.zshrc` into `/etc/skel/.zshrc` and into every existing home directory. A pre-existing `.zshrc` is kept as `.zshrc.bak.<timestamp>`, and the installed copy keeps the account's uid/gid.
+- `edit-etc-default-useradd/edit-etc-default-useradd.sh` overwrites `/etc/default/useradd` with `SHELL=/bin/zsh` (no merging), so accounts created later — by the installer, `useradd` or `adduser` — start with zsh too.
+
+Both scripts also run against a real system or an unpacked root: `sudo ./edit-terminal/edit-terminal.sh [<root>]` and `sudo ./edit-etc-default-useradd/edit-etc-default-useradd.sh [<target>]`. Neither is shipped in the final image.
+
 ## Using the ISO
 
 1. **Write to a USB drive** (replace `/dev/sdX` with your actual device — this erases it):
@@ -152,12 +169,13 @@ Windows users can use `scripts\download-release.ps1` (PowerShell) or `scripts\do
 
 ## Testing
 
-Four layers of checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
+Five layers of checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
 
 | Layer | Command | Requires | Blocks PR |
 |---|---|---|---|
 | Unit tests / version consistency | `node --test tests/*.test.js` and `bash tests/check-version-consistency.sh` | Node.js 22+; no root, no network | Yes |
 | Preflight (mocked) | `bash tests/preflight.test.sh` | bash; no root, no network | Yes |
+| Login shell | `bash tests/terminal.test.sh` | bash; no root, no network | Yes |
 | Artifact verification | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`, `unsquashfs`, `md5sum`, `sha256sum` | No (blocks the build job) |
 | VM boot smoke | `bash tests/vm-smoke.sh <iso> [timeout]` | `qemu-system-x86_64`, OVMF | No (advisory) |
 
@@ -167,6 +185,7 @@ Run the local gates in one shot:
 node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
+bash tests/terminal.test.sh
 ```
 
 See [tests/README.md](tests/README.md) for details and safety notes.

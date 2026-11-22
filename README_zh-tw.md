@@ -45,6 +45,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 - **內建 Logo** —— 建置時從 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下載 Kzhento Logo（固定 commit + SHA256 檢查），安裝至 `/usr/share/backgrounds/kzhento/`， repository 中不再存放二進位圖片。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
+- **所有帳號使用 zsh** —— 既有帳號切換為 `/bin/zsh` 並安裝啟用 Starship 的 `.zshrc`，`/etc/default/useradd` 讓新建帳號使用相同 shell。
 - **Kzhento 桌面安裝程式** —— 來自 [zhento-desktop-install](https://github.com/zitzhen/zhento-desktop-install) 的 `ubuntu-desktop-bootstrap` snap 已預置於映像中。在真實系統中直接安裝；在 `chroot` 內則透過一次性 systemd 服務於首次開機時完成安裝。
 - **感知分層的修補機制** —— 僅修改預設安裝來源的基礎 squashfs 層，語言層與 enhanced-secureboot 覆蓋層保持不變。
 - **總和檢查碼與驗證** —— 重新產生 `md5sum.txt`，CI 為每個發行版發佈 MD5 與 SHA256 檢查碼檔案。
@@ -61,15 +62,21 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release 品牌資訊（Kzhento；沿用原有值）
 │   └── edit.sh               # 將檔案寫入 /etc/os-release
+├── edit-terminal/
+│   └── edit-terminal.sh      # 將所有既有帳號切換為 zsh 並安裝 Kzhento 的 .zshrc
 ├── edit-logo.sh/
 │   └── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
+├── edit-etc-default-useradd/
+│   ├── edit-etc-default-useradd.sh # 將 SHELL=/bin/zsh 寫入 /etc/default/useradd（新建帳號）
+│   ├── useradd               # Kzhento 的 /etc/default/useradd
+│   └── .zshrc                # Kzhento 的 ~/.zshrc（Starship 提示字元）
 ├── install-app/
 │   ├── ppa.list              # 建置時啟用的額外 PPA
 │   ├── curl.sh, git.sh, zsh.sh, patchsplit.sh
 │   └── Installer.sh          # 桌面安裝程式（snap）設定
 ├── scripts/
 │   └── download-release.*    # 下載 GitHub Release 的全部資產（sh / ps1 / cmd）
-├── tests/                    # 四層煙霧測試（詳見 tests/README.md）
+├── tests/                    # 五層煙霧測試（詳見 tests/README.md）
 └── .github/                  # Issue/PR 範本、CI 工作流程、自動標籤
 ```
 
@@ -120,6 +127,16 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 若 `VERSION` 與 `edit-os-release/os-release` 中的版本不一致，建置腳本將拒絕執行，以確保品牌形象不會與版本號脫節。
 
+### 預設 Shell
+
+映像上的每個帳號都使用 **zsh**，Starship 提示字元由 `~/.zshrc` 初始化：
+
+- `edit-terminal/edit-terminal.sh` 在 `chroot` 內執行並重寫 `/etc/passwd`：`root` 與所有一般帳號（uid ≥ 1000）的登入 shell 改為 `/bin/zsh`。系統帳號以及已固定為 `nologin`／`false` 的帳號維持不變。
+- 同一腳本會把 `edit-etc-default-useradd/.zshrc` 安裝到 `/etc/skel/.zshrc` 以及每個既有的家目錄。原有 `.zshrc` 會保留為 `.zshrc.bak.<時間戳>`，新安裝檔案的 uid／gid 歸屬於對應帳號。
+- `edit-etc-default-useradd/edit-etc-default-useradd.sh` 以 `SHELL=/bin/zsh` 整份覆寫 `/etc/default/useradd`（不合併），因此安裝程式、`useradd` 或 `adduser` 之後新建的帳號也預設使用 zsh。
+
+兩個腳本亦可對真實系統或已解包的根目錄執行：`sudo ./edit-terminal/edit-terminal.sh [<root>]` 與 `sudo ./edit-etc-default-useradd/edit-etc-default-useradd.sh [<target>]`。兩者都不會被打包進最終映像。
+
 ## 使用 ISO
 
 1. **寫入 USB 隨身碟**（請將 `/dev/sdX` 替換為你的實際裝置——此操作會清空該裝置）：
@@ -152,12 +169,13 @@ Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `sc
 
 ## 測試
 
-四層檢查依成本由低至高排列。較低層是 PR 的強制關卡，較高層在建置／發行期間作為補充驗收。
+五層檢查依成本由低至高排列。較低層是 PR 的強制關卡，較高層在建置／發行期間作為補充驗收。
 
 | 層級 | 指令 | 依賴 | 阻斷 PR |
 |---|---|---|---|
 | 單元測試／版本一致性 | `node --test tests/*.test.js` 與 `bash tests/check-version-consistency.sh` | Node.js 22+；無需 root、無需網路 | 是 |
 | 預檢（mock） | `bash tests/preflight.test.sh` | bash；無需 root、無需網路 | 是 |
+| 登入終端 | `bash tests/terminal.test.sh` | bash；無需 root、無需網路 | 是 |
 | 產物驗證 | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`、`unsquashfs`、`md5sum`、`sha256sum` | 否（在 build job 內阻斷建置） |
 | VM 開機煙霧測試 | `bash tests/vm-smoke.sh <iso> [逾時秒數]` | `qemu-system-x86_64`、OVMF | 否（僅供參考） |
 
@@ -167,6 +185,7 @@ Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `sc
 node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
+bash tests/terminal.test.sh
 ```
 
 詳情與安全注意事項請見 [tests/README.md](tests/README.md)。
