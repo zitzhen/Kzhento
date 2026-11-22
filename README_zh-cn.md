@@ -164,6 +164,7 @@ Kubuntu 自带的视觉元素在四个位置被替换，每个位置对应 `buil
 改动这部分时有两点需要知道：
 
 - 系统自带 `spinner` 主题里的 `watermark.png` 是 **dpkg 符号链接**，指向 `/usr/share/pixmaps/ubuntu-logo-text-dark.png`。`edit-plymouth.sh` 会把它换成普通文件，使开机画面不再依赖那张 pixmap；`edit-pixmaps.sh` 则把上游文件保留为 `.zhento-orig`。
+- Kzhento 主题使用 `two-step` 模块，绘制的是自己 `ImageDir` 里的 `animation-*.png`；系统自带 `spinner` 主题的 `throbber-*.png` 是该主题脚本的素材，**不会**被复制过来。`edit-plymouth.sh` 把渲染出的图标安装为 `animation-0001.png`，`tests/plymouth-payload.test.sh` 负责保证主题文件与安装脚本一致。
 - 主题只有在被**打进 initramfs** 之后才会出现在开机画面上，所以 `select-theme.sh` 放在最后执行——它需要 `/proc` 与 `/sys`，只能在 chroot 拆掉之后跑。
 
 当某一步的输入不存在时，该步会以警告跳过而不是直接失败，因此不含 KDE 的镜像也能正常构建。

@@ -4,6 +4,10 @@ Description=Kzhento boot theme: a spinner over a black background with the Kzhen
 ModuleName=two-step
 
 [two-step]
+# The animation is animation-NN.png, not throbber-*.png: those are the frames
+# of the stock "spinner" theme's own script, and two-step would never draw them.
+AnimationDir=/usr/share/plymouth/themes/minimal
+AnimationFile=animation-0001.png
 Font=Cantarell 12
 TitleFont=Cantarell Light 30
 ImageDir=/usr/share/plymouth/themes/minimal
