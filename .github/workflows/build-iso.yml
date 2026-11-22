@@ -76,8 +76,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            xorriso squashfs-tools rsync zip
+            xorriso squashfs-tools rsync zip python3-pil
           xorriso -version | head -n1
+          # The wordmark and the boot splash PNGs are rendered by
+          # edit-plymouth/render.py, which needs Pillow on the host.
+          python3 -c 'import PIL; print("Pillow", PIL.__version__)'
 
       - name: Compute version
         id: meta
