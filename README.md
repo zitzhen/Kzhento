@@ -207,7 +207,7 @@ Six layers of checks are arranged by increasing cost. The lower layers are manda
 | Unit tests / version consistency | `node --test tests/*.test.js` and `bash tests/check-version-consistency.sh` | Node.js 22+; no root, no network | Yes |
 | Preflight (mocked) | `bash tests/preflight.test.sh` | bash; no root, no network | Yes |
 | Login shell | `bash tests/terminal.test.sh` | bash; no root, no network | Yes |
-| Boot splash artwork | `bash tests/render.test.sh` | bash, Python 3 + Pillow; no root, no network | Yes |
+| Boot splash artwork | `bash tests/render.test.sh` | bash, Python 3 + Pillow, `logo/kzhento_transparent.png` (skipped if absent); no root, no network | Yes |
 | Artifact verification | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`, `unsquashfs`, `md5sum`, `sha256sum` | No (blocks the build job) |
 | VM boot smoke | `bash tests/vm-smoke.sh <iso> [timeout]` | `qemu-system-x86_64`, OVMF | No (advisory) |
 

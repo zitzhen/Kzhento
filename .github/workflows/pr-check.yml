@@ -92,6 +92,18 @@ jobs:
       - name: Boot splash artwork tests
         run: |
           python3 -m pip install --quiet pillow
+
+          # The artwork is not committed (edit-logo.sh downloads it at build
+          # time), so fetch the same pinned revision the build uses. The
+          # checksum is the one edit-logo.sh verifies against; a mismatch here
+          # means the pin and the upstream repo have drifted apart.
+          ref=afcfbd5497a4e19b009468a9b3f349edcdba61a3
+          sum=eba6a63c01475fe3286b88a1c5eede6a6ccddae1260996afbfc80d78415dfc1f
+          mkdir -p logo
+          curl -fsSL --retry 3 -o logo/kzhento_transparent.png \
+            "https://raw.githubusercontent.com/zitzhen/kzhento-icon/$ref/kzhento_transparent.png"
+          echo "$sum  logo/kzhento_transparent.png" | sha256sum -c -
+
           bash tests/render.test.sh
 
   secrets:

@@ -207,7 +207,7 @@ Windows 用户可使用 `scripts\download-release.ps1`（PowerShell）或 `scrip
 | 单元测试 / 版本一致性 | `node --test tests/*.test.js` 和 `bash tests/check-version-consistency.sh` | Node.js 22+；无需 root、无需网络 | 是 |
 | 预检（mock） | `bash tests/preflight.test.sh` | bash；无需 root、无需网络 | 是 |
 | 登录终端 | `bash tests/terminal.test.sh` | bash；无需 root、无需网络 | 是 |
-| 开机画面素材 | `bash tests/render.test.sh` | bash、Python 3 + Pillow；无需 root、无需网络 | 是 |
+| 开机画面素材 | `bash tests/render.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无需 root、无需网络 | 是 |
 | 产物验证 | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`、`unsquashfs`、`md5sum`、`sha256sum` | 否（在 build job 内阻断构建） |
 | VM 启动冒烟 | `bash tests/vm-smoke.sh <iso> [超时秒数]` | `qemu-system-x86_64`、OVMF | 否（仅供参考） |
 

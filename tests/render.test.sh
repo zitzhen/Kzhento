@@ -4,9 +4,19 @@
 #
 # Unit checks for edit-plymouth/render.py, the script that turns the logo into
 # the boot splash artwork. Everything runs in a temporary directory and only
-# reads the repository's cached logo, so no root and no network are needed.
+# reads the logo from LOGO_DIR; no root is needed and the suite itself never
+# touches the network.
 #
 # Usage: bash tests/render.test.sh
+#
+# Environment:
+#   LOGO_DIR   directory holding kzhento_transparent.png
+#              (default: <repo>/logo, the build's download cache)
+#
+# The artwork is deliberately not committed (edit-logo.sh downloads it at build
+# time), so a clean checkout has no logo. This suite checks the renderer, not
+# the logo, so it skips - exit 0 with a note - when the source is absent rather
+# than failing a PR that cannot possibly provide it.
 #
 # The assertions are deliberately coarse: the exact ring geometry is a drawing
 # detail, but the properties below are what the boot screen actually needs.
@@ -20,17 +30,23 @@ set -euo pipefail
 
 REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
 RENDER="$REPO_DIR/edit-plymouth/render.py"
-LOGO_DIR="$REPO_DIR/logo"
+LOGO_DIR=${LOGO_DIR:-"$REPO_DIR/logo"}
 
 die() {
     printf 'XX  %s\n' "$*" >&2
     exit 1
 }
 ok() { printf 'ok  %s\n' "$*"; }
+skip() {
+    printf '..  %s\n' "$*"
+    printf '\nrender checks skipped\n'
+    exit 0
+}
 
 [ -f "$RENDER" ] || die "Missing: $RENDER"
-[ -f "$LOGO_DIR/kzhento_transparent.png" ] ||
-    die "Missing logo: $LOGO_DIR/kzhento_transparent.png (run edit-logo.sh/edit-logo.sh once)"
+if [ ! -f "$LOGO_DIR/kzhento_transparent.png" ]; then
+    skip "No logo at $LOGO_DIR/kzhento_transparent.png; the artwork is downloaded, not committed"
+fi
 
 PY_BIN=${PYTHON:-}
 if [ -z "$PY_BIN" ]; then
