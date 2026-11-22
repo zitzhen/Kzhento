@@ -99,6 +99,18 @@ preflight_checks() {
         [ -f "$f" ] || die "Missing build input: $f"
     done
 
+    # Branding steps are optional: an older checkout or a deliberately minimal
+    # tree can skip them, but a half-present step is a hard error.
+    local d
+    for d in edit-plymouth/edit-plymouth.sh edit-plymouth/select-theme.sh \
+        edit-plymouth/render.py edit-plymouth/plymouth/minimal.plymouth \
+        edit-logo.sh/edit-pixmaps.sh edit-notification/edit-notification.sh \
+        edit-os-release/edit-about-system.sh edit-os-release/kcm-about-distrorc; do
+        if [ ! -f "$SELF_DIR/$d" ]; then
+            warn "Branding input missing, its step will be skipped: $d"
+        fi
+    done
+
     if [ -f "$SELF_DIR/tests/check-version-consistency.sh" ]; then
         bash "$SELF_DIR/tests/check-version-consistency.sh"
     else
@@ -395,8 +407,90 @@ apply_logo() {
         return 0
     }
 
+    # The artwork is installed twice: as /usr/share/backgrounds/kzhento and as
+    # /usr/share/pixmaps/ubuntu-logo-text-dark.png (what the Plymouth themes
+    # draw and what upstream tools call the distro wordmark). The second copy
+    # is rendered from the first, so both come from the same download.
     log "Installing Kzhento logo"
     sh "$script" "$ROOT_DIR" || die "Failed to install logo"
+}
+
+# ---------------------------------------------------------------------------
+# Wordmark: replace /usr/share/pixmaps/ubuntu-logo-text-dark.png
+# ---------------------------------------------------------------------------
+apply_pixmap_logo() {
+    local script="$SELF_DIR/edit-logo.sh/edit-pixmaps.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-logo.sh/edit-pixmaps.sh is missing, skipping the wordmark"
+        return 0
+    }
+
+    log "Installing Kzhento wordmark"
+    sh "$script" "$SELF_DIR/logo" "$ROOT_DIR" || die "Failed to install wordmark"
+}
+
+# ---------------------------------------------------------------------------
+# Boot splash: Kzhento theme + artwork for the stock spinner theme. The initramfs
+# is rebuilt afterwards by apply_plymouth_theme, once the chroot is gone.
+# ---------------------------------------------------------------------------
+apply_plymouth() {
+    local script="$SELF_DIR/edit-plymouth/edit-plymouth.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-plymouth/edit-plymouth.sh is missing, skipping the boot splash"
+        return 0
+    }
+
+    log "Installing Kzhento boot splash"
+    sh "$script" "$ROOT_DIR" || die "Failed to install boot splash"
+}
+
+# ---------------------------------------------------------------------------
+# Boot splash, part 2: select the theme and rebuild the initramfs. Runs after
+# the chroot has been torn down, because update-initramfs needs /proc and /sys.
+# ---------------------------------------------------------------------------
+apply_plymouth_theme() {
+    local script="$SELF_DIR/edit-plymouth/select-theme.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-plymouth/select-theme.sh is missing, skipping the initramfs rebuild"
+        return 0
+    }
+    [ -d "$ROOT_DIR/usr/share/plymouth/themes/minimal" ] || return 0
+
+    log "Selecting the boot splash theme and rebuilding the initramfs"
+    sh "$script" "$ROOT_DIR" || die "Failed to select the boot splash theme"
+}
+
+# ---------------------------------------------------------------------------
+# Welcome Center: Kzhento strings for kubuntu-notification-helper
+# ---------------------------------------------------------------------------
+apply_notification() {
+    local script="$SELF_DIR/edit-notification/edit-notification.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-notification/edit-notification.sh is missing, skipping the Welcome Center"
+        return 0
+    }
+
+    log "Rebranding the Welcome Center"
+    sh "$script" "$ROOT_DIR" || die "Failed to rebrand the Welcome Center"
+}
+
+# ---------------------------------------------------------------------------
+# About this System: kcm-about-distrorc for kcm_about-distro
+# ---------------------------------------------------------------------------
+apply_about_system() {
+    local script="$SELF_DIR/edit-os-release/edit-about-system.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-os-release/edit-about-system.sh is missing, skipping About this System"
+        return 0
+    }
+
+    log "Branding About this System"
+    sh "$script" "$ROOT_DIR" || die "Failed to brand About this System"
 }
 
 # ---------------------------------------------------------------------------
@@ -504,7 +598,11 @@ patch_layer() {
         /bin/bash /opt/zhento-build/build.sh --apps-only
 
     apply_os_release
+    apply_about_system
     apply_logo
+    apply_pixmap_logo
+    apply_plymouth
+    apply_notification
     apply_useradd_defaults
     apply_terminal
 
@@ -514,6 +612,10 @@ patch_layer() {
     rm -f "$ROOT_DIR"/var/cache/apt/archives/*.deb 2>/dev/null || true
 
     cleanup
+
+    # After cleanup: the theme only reaches the boot screen once it is baked
+    # into the initramfs, and that needs /proc and /sys inside the chroot.
+    apply_plymouth_theme
 
     log "Repacking $layer"
     mksquashfs "$ROOT_DIR" "$WORK_DIR/$layer" \
