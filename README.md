@@ -61,11 +61,22 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 │   └── replace-grub.sh       # Install the menu into a target grub.cfg (with backup)
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release branding (Kzhento; inherited values)
-│   └── edit.sh               # Install the file into /etc/os-release
+│   ├── edit.sh               # Install the file into /etc/os-release
+│   ├── kcm-about-distrorc    # Kzhento "About this System" page (name, version, logo, website)
+│   └── edit-about-system.sh  # Install the rc file into /etc/xdg
 ├── edit-terminal/
 │   └── edit-terminal.sh      # Switch every existing account to zsh and install the Kzhento .zshrc
 ├── edit-logo.sh/
-│   └── edit-logo.sh          # Download + install Kzhento logo into the image
+│   ├── edit-logo.sh          # Download + install Kzhento logo into the image
+│   └── edit-pixmaps.sh       # Replace /usr/share/pixmaps/ubuntu-logo-text-dark.png with the wordmark
+├── edit-plymouth/
+│   ├── render.py             # Render the logo into boot-splash artwork (watermark + spinner)
+│   ├── plymouth/minimal.plymouth # The Kzhento boot theme (two-step module)
+│   ├── edit-plymouth.sh      # Install the theme and the artwork into a target root
+│   └── select-theme.sh       # Select the theme and rebuild the initramfs (needs root)
+├── edit-notification/
+│   ├── po/                   # Kzhento catalogues for kubuntu-notification-helper (en, zh_CN)
+│   └── edit-notification.sh  # Install the catalogues and rename the launcher entry
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # Write SHELL=/bin/zsh into /etc/default/useradd (new accounts)
 │   ├── useradd               # Kzhento /etc/default/useradd
@@ -76,7 +87,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 │   └── Installer.sh          # Desktop Installer (snap) setup
 ├── scripts/
 │   └── download-release.*    # Download all assets of a GitHub release (sh / ps1 / cmd)
-├── tests/                    # Five-layer smoke tests (see tests/README.md)
+├── tests/                    # Six-layer smoke tests (see tests/README.md)
 └── .github/                  # Issue/PR templates, CI workflows, auto-labeling
 ```
 
@@ -137,6 +148,26 @@ Every account on the image uses **zsh**, with the Starship prompt initialised fr
 
 Both scripts also run against a real system or an unpacked root: `sudo ./edit-terminal/edit-terminal.sh [<root>]` and `sudo ./edit-etc-default-useradd/edit-etc-default-useradd.sh [<target>]`. Neither is shipped in the final image.
 
+### Branding
+
+Kubuntu's own artwork is replaced on four surfaces, each by a step that `build.sh` runs inside the unpacked layer:
+
+| Surface | Controlled by | Step |
+|---|---|---|
+| Boot splash (Plymouth) | `/usr/share/plymouth/themes/minimal` + `default.plymouth` | `edit-plymouth/edit-plymouth.sh`, then `select-theme.sh` |
+| Distro wordmark in `/usr/share/pixmaps` | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
+| Welcome Center notification | `kubuntu-notification-helper.mo` catalogues | `edit-notification/edit-notification.sh` |
+| "About this System" page | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
+
+The splash artwork is generated from the logo rather than shipped as a static file, so it stays in sync with the brand: `edit-plymouth/render.py` produces a white-on-transparent watermark (the full logo, at the bottom of the boot screen) and a 48×48 spinner frame (the ringed "Kz"), recolouring the charcoal ink to white and keeping the blue accents. `tests/render.test.sh` checks the output.
+
+Two details are worth knowing when changing this:
+
+- `watermark.png` in the stock `spinner` theme is a **dpkg symlink** to `/usr/share/pixmaps/ubuntu-logo-text-dark.png`. `edit-plymouth.sh` replaces it with a regular file, so the boot screen no longer depends on that pixmap, and `edit-pixmaps.sh` keeps the upstream file as `.zhento-orig`.
+- The theme only reaches the boot screen once it is baked into the **initramfs**, which is why `select-theme.sh` rebuilds it last, after the chroot is gone (it needs `/proc` and `/sys`).
+
+Each step is skipped with a warning, not a failure, when its inputs are absent — so an image without KDE still builds.
+
 ## Using the ISO
 
 1. **Write to a USB drive** (replace `/dev/sdX` with your actual device — this erases it):
@@ -169,13 +200,14 @@ Windows users can use `scripts\download-release.ps1` (PowerShell) or `scripts\do
 
 ## Testing
 
-Five layers of checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
+Six layers of checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
 
 | Layer | Command | Requires | Blocks PR |
 |---|---|---|---|
 | Unit tests / version consistency | `node --test tests/*.test.js` and `bash tests/check-version-consistency.sh` | Node.js 22+; no root, no network | Yes |
 | Preflight (mocked) | `bash tests/preflight.test.sh` | bash; no root, no network | Yes |
 | Login shell | `bash tests/terminal.test.sh` | bash; no root, no network | Yes |
+| Boot splash artwork | `bash tests/render.test.sh` | bash, Python 3 + Pillow, `logo/kzhento_transparent.png` (skipped if absent); no root, no network | Yes |
 | Artifact verification | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`, `unsquashfs`, `md5sum`, `sha256sum` | No (blocks the build job) |
 | VM boot smoke | `bash tests/vm-smoke.sh <iso> [timeout]` | `qemu-system-x86_64`, OVMF | No (advisory) |
 
@@ -186,6 +218,7 @@ node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/terminal.test.sh
+bash tests/render.test.sh
 ```
 
 See [tests/README.md](tests/README.md) for details and safety notes.

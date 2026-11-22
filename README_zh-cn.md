@@ -61,11 +61,22 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   └── replace-grub.sh       # 将菜单写入目标 grub.cfg（自动备份）
 ├── edit-os-release/
 │   ├── os-release            # /etc/os-release 品牌信息（Kzhento；沿用原有值）
-│   └── edit.sh               # 将文件写入 /etc/os-release
+│   ├── edit.sh               # 将文件写入 /etc/os-release
+│   ├── kcm-about-distrorc    # 「关于本系统」页面（名称、版本、Logo、网站）
+│   └── edit-about-system.sh  # 将 rc 文件写入 /etc/xdg
 ├── edit-terminal/
 │   └── edit-terminal.sh      # 将所有已有账户切换为 zsh 并安装 Kzhento 的 .zshrc
 ├── edit-logo.sh/
-│   └── edit-logo.sh          # 构建时下载并安装 Kzhento Logo
+│   ├── edit-logo.sh          # 构建时下载并安装 Kzhento Logo
+│   └── edit-pixmaps.sh       # 用 Kzhento 字标替换 /usr/share/pixmaps/ubuntu-logo-text-dark.png
+├── edit-plymouth/
+│   ├── render.py             # 由 Logo 渲染开机画面素材（水印 + 转圈图标）
+│   ├── plymouth/minimal.plymouth # Kzhento 开机主题（two-step 模块）
+│   ├── edit-plymouth.sh      # 将主题与素材安装到目标根目录
+│   └── select-theme.sh       # 选定主题并重建 initramfs（需 root）
+├── edit-notification/
+│   ├── po/                   # kubuntu-notification-helper 的 Kzhento 语言包（en、zh_CN）
+│   └── edit-notification.sh  # 安装语言包并重命名启动项
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # 向 /etc/default/useradd 写入 SHELL=/bin/zsh（新建账户）
 │   ├── useradd               # Kzhento 的 /etc/default/useradd
@@ -76,7 +87,7 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   └── Installer.sh          # 桌面安装器（snap）配置
 ├── scripts/
 │   └── download-release.*    # 下载 GitHub Release 的全部资产（sh / ps1 / cmd）
-├── tests/                    # 五层冒烟测试（详见 tests/README.md）
+├── tests/                    # 六层冒烟测试（详见 tests/README.md）
 └── .github/                  # Issue/PR 模板、CI 工作流、自动标签
 ```
 
@@ -137,6 +148,26 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 两个脚本也可对真实系统或已解包的根目录运行：`sudo ./edit-terminal/edit-terminal.sh [<root>]` 与 `sudo ./edit-etc-default-useradd/edit-etc-default-useradd.sh [<target>]`。两者都不会被包含进最终镜像。
 
+### 品牌替换
+
+Kubuntu 自带的视觉元素在四个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
+
+| 位置 | 由什么控制 | 对应步骤 |
+|---|---|---|
+| 开机画面（Plymouth） | `/usr/share/plymouth/themes/minimal` + `default.plymouth` | `edit-plymouth/edit-plymouth.sh`，随后 `select-theme.sh` |
+| `/usr/share/pixmaps` 里的发行版字标 | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
+| 欢迎中心通知 | `kubuntu-notification-helper.mo` 语言包 | `edit-notification/edit-notification.sh` |
+| 「关于本系统」页面 | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
+
+开机画面素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）和 48×48 的转圈帧（带圆环的「Kz」），把炭灰色墨迹改为白色、保留蓝色点缀。`tests/render.test.sh` 校验其输出。
+
+改动这部分时有两点需要知道：
+
+- 系统自带 `spinner` 主题里的 `watermark.png` 是 **dpkg 符号链接**，指向 `/usr/share/pixmaps/ubuntu-logo-text-dark.png`。`edit-plymouth.sh` 会把它换成普通文件，使开机画面不再依赖那张 pixmap；`edit-pixmaps.sh` 则把上游文件保留为 `.zhento-orig`。
+- 主题只有在被**打进 initramfs** 之后才会出现在开机画面上，所以 `select-theme.sh` 放在最后执行——它需要 `/proc` 与 `/sys`，只能在 chroot 拆掉之后跑。
+
+当某一步的输入不存在时，该步会以警告跳过而不是直接失败，因此不含 KDE 的镜像也能正常构建。
+
 ## 使用 ISO
 
 1. **写入 U 盘**（请将 `/dev/sdX` 替换为你的实际设备——此操作会清空该设备）：
@@ -169,13 +200,14 @@ Windows 用户可使用 `scripts\download-release.ps1`（PowerShell）或 `scrip
 
 ## 测试
 
-五层检查按成本从低到高排列。较低层是 PR 的强制门禁，较高层在构建/发布期间作为补充验收。
+六层检查按成本从低到高排列。较低层是 PR 的强制门禁，较高层在构建/发布期间作为补充验收。
 
 | 层级 | 命令 | 依赖 | 阻断 PR |
 |---|---|---|---|
 | 单元测试 / 版本一致性 | `node --test tests/*.test.js` 和 `bash tests/check-version-consistency.sh` | Node.js 22+；无需 root、无需网络 | 是 |
 | 预检（mock） | `bash tests/preflight.test.sh` | bash；无需 root、无需网络 | 是 |
 | 登录终端 | `bash tests/terminal.test.sh` | bash；无需 root、无需网络 | 是 |
+| 开机画面素材 | `bash tests/render.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无需 root、无需网络 | 是 |
 | 产物验证 | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`、`unsquashfs`、`md5sum`、`sha256sum` | 否（在 build job 内阻断构建） |
 | VM 启动冒烟 | `bash tests/vm-smoke.sh <iso> [超时秒数]` | `qemu-system-x86_64`、OVMF | 否（仅供参考） |
 
@@ -186,6 +218,7 @@ node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/terminal.test.sh
+bash tests/render.test.sh
 ```
 
 详情与安全注意事项见 [tests/README.md](tests/README.md)。

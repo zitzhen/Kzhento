@@ -44,22 +44,43 @@ fi
 target=${1:-/}
 dest="$target/usr/share/backgrounds/kzhento"
 
-tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"' EXIT
+# The branding steps that render derived artwork (Plymouth watermarks, the
+# /usr/share/pixmaps wordmark) read the source PNGs from <repo>/logo, so this
+# is where the download is cached as well.
+cache=$(cd "$(dirname "$0")/.." && pwd)/logo
 
-for f in $FILES; do
-    log "Downloading $f from kzhento-icon@$LOGO_REF"
-    fetch "$RAW_BASE/$f" "$tmp/$f" || die "Failed to download $f"
-    [ -s "$tmp/$f" ] || die "Downloaded $f is empty"
-done
+if [ -s "$cache/kzhento_transparent.png" ] &&
+    printf '%s\n' "$SUMS" | (cd "$cache" && sha256sum -c -) >/dev/null 2>&1; then
+    log "Using cached logo from $cache"
+    tmp=$cache
+    cached=1
+else
+    cached=0
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
 
-printf '%s\n' "$SUMS" | (cd "$tmp" && sha256sum -c -) ||
-    die "Logo checksum verification failed"
+    for f in $FILES; do
+        log "Downloading $f from kzhento-icon@$LOGO_REF"
+        fetch "$RAW_BASE/$f" "$tmp/$f" || die "Failed to download $f"
+        [ -s "$tmp/$f" ] || die "Downloaded $f is empty"
+    done
+
+    printf '%s\n' "$SUMS" | (cd "$tmp" && sha256sum -c -) ||
+        die "Logo checksum verification failed"
+fi
 
 log "Installing logo to $dest"
 install -d -m 0755 "$dest"
 for f in $FILES; do
     install -m 0644 "$tmp/$f" "$dest/$f"
 done
+
+if [ "$cached" -eq 0 ]; then
+    install -d -m 0755 "$cache"
+    for f in $FILES; do
+        install -m 0644 "$tmp/$f" "$cache/$f"
+    done
+    log "Cached logo sources in $cache"
+fi
 
 log "Done: $dest/kzhento.png, $dest/kzhento_transparent.png"
