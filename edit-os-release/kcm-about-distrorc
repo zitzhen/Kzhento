@@ -1,0 +1,23 @@
+# Copyright (C) 2026 ZIT STUDIO
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Branding of the "About this System" page (kcm_about-distro), read by
+# System Settings and by kinfocenter.
+#
+# The module falls back to /etc/os-release for every key below, so only the
+# values that differ from it need to be repeated here. It is shipped as a
+# separate file so the page keeps working when os-release is rewritten by
+# another tool.
+
+[General]
+# Icon name shown next to the product name. Resolved through the icon theme,
+# so a Kzhento package that ships start-here-kde will be picked up without
+# touching this file. kinfocenter falls back to it when LogoPath is empty.
+LogoPath=start-here-kde
+# Product name and version, rendered as "<Name> <Version>".
+Name=K-Zhento
+Version=0.1.0
+# Link under the product name.
+Website=https://zitzhen.cn/
+# Do not print the build number; it is meaningless for a released image.
+ShowBuild=false
