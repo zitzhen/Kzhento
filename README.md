@@ -87,7 +87,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 │   └── Installer.sh          # Desktop Installer (snap) setup
 ├── scripts/
 │   └── download-release.*    # Download all assets of a GitHub release (sh / ps1 / cmd)
-├── tests/                    # Six-layer smoke tests (see tests/README.md)
+├── tests/                    # Layered smoke tests (see tests/README.md)
 └── .github/                  # Issue/PR templates, CI workflows, auto-labeling
 ```
 
@@ -201,7 +201,7 @@ Windows users can use `scripts\download-release.ps1` (PowerShell) or `scripts\do
 
 ## Testing
 
-Six layers of checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
+The checks are arranged by increasing cost. The lower layers are mandatory PR gates; higher layers run during build/release.
 
 | Layer | Command | Requires | Blocks PR |
 |---|---|---|---|
@@ -209,6 +209,8 @@ Six layers of checks are arranged by increasing cost. The lower layers are manda
 | Preflight (mocked) | `bash tests/preflight.test.sh` | bash; no root, no network | Yes |
 | Login shell | `bash tests/terminal.test.sh` | bash; no root, no network | Yes |
 | Boot splash artwork | `bash tests/render.test.sh` | bash, Python 3 + Pillow, `logo/kzhento_transparent.png` (skipped if absent); no root, no network | Yes |
+| Boot splash payload | `bash tests/plymouth-payload.test.sh` | bash; no root, no network | Yes |
+| Release ISO probe test | `bash tests/release-iso-probe.test.sh` | bash, `mksquashfs`, `cpio`, `gzip`; no root, no network | Yes |
 | Artifact verification | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`, `unsquashfs`, `md5sum`, `sha256sum` | No (blocks the build job) |
 | VM boot smoke | `bash tests/vm-smoke.sh <iso> [timeout]` | `qemu-system-x86_64`, OVMF | No (advisory) |
 
@@ -219,7 +221,15 @@ node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/terminal.test.sh
+bash tests/plymouth-payload.test.sh
+bash tests/release-iso-probe.test.sh
 bash tests/render.test.sh
+```
+
+To check what an already-built or downloaded ISO actually shows, run the probe on it. It reports every branded surface as branded or stock and needs no root:
+
+```bash
+bash tests/release-iso-probe.sh /path/to/kzhento-amd64.iso
 ```
 
 See [tests/README.md](tests/README.md) for details and safety notes.

@@ -92,6 +92,15 @@ jobs:
       - name: Boot splash payload tests
         run: bash tests/plymouth-payload.test.sh
 
+      - name: Release ISO probe tests
+        # Fixture images are built here (squashfs + initramfs), so the probe's
+        # two answers - branded passes, stock is reported - are both checked
+        # without a 5G ISO.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends squashfs-tools cpio
+          bash tests/release-iso-probe.test.sh
+
       - name: Boot splash artwork tests
         run: |
           python3 -m pip install --quiet pillow
