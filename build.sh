@@ -464,6 +464,57 @@ apply_plymouth_theme() {
 }
 
 # ---------------------------------------------------------------------------
+# Boot splash, part 3: put the rebuilt initramfs where GRUB actually reads it.
+#
+# update-initramfs only writes /boot/initrd.img-<kver> inside the layer, but the
+# ISO boots from /casper/initrd, outside every squashfs. Without this copy the
+# rebuilt initramfs is packaged and never loaded: the boot screen keeps drawing
+# whatever the base ISO's initramfs carried, which is why a fully branded image
+# still showed the stock Kubuntu logo.
+#
+# The kernel is the one casper/vmlinuz runs, so the initramfs has to be the
+# matching one; casper/vmlinuz is not rebuilt by this script, so it is only
+# re-copied when it differs.
+# ---------------------------------------------------------------------------
+sync_casper_boot() {
+    local kernel versioned casper_vmlinuz casper_initrd
+
+    [ -f "$ROOT_DIR/etc/initramfs-tools/initramfs.conf" ] || {
+        warn "No initramfs-tools in the image, skipping the casper/ boot file sync"
+        return 0
+    }
+    [ -d "$ISO_DIR/casper" ] || {
+        warn "No casper/ directory in the ISO tree, skipping the boot file sync"
+        return 0
+    }
+
+    kernel=$(cd "$ROOT_DIR/boot" 2>/dev/null && basename "$(readlink -f vmlinuz 2>/dev/null)" 2>/dev/null) || true
+    kernel=${kernel#vmlinuz-}
+    versioned="$ROOT_DIR/boot/initrd.img-$kernel"
+    [ -n "$kernel" ] && [ -f "$versioned" ] || {
+        warn "No rebuilt /boot/initrd.img-<kernel> in the image, skipping the casper/ boot file sync"
+        return 0
+    }
+
+    casper_vmlinuz="$ISO_DIR/casper/vmlinuz"
+    if [ -f "$ROOT_DIR/boot/vmlinuz-$kernel" ] && ! cmp -s "$ROOT_DIR/boot/vmlinuz-$kernel" "$casper_vmlinuz"; then
+        log "Syncing casper/vmlinuz with the patched /boot/vmlinuz-$kernel"
+        cp -f "$ROOT_DIR/boot/vmlinuz-$kernel" "$casper_vmlinuz"
+        chmod 0644 "$casper_vmlinuz"
+    fi
+
+    # Never leave a stale casper/initrd behind: if this copy fails the image would
+    # boot the base ISO's initramfs while every check inside the layer passes.
+    casper_initrd="$ISO_DIR/casper/initrd"
+    log "Installing the rebuilt initramfs as casper/initrd (kernel $kernel)"
+    cp -f "$versioned" "$casper_initrd.tmp" || die "Cannot write $casper_initrd"
+    chmod 0644 "$casper_initrd.tmp"
+    mv -f "$casper_initrd.tmp" "$casper_initrd" || die "Cannot replace $casper_initrd"
+    cmp -s "$versioned" "$casper_initrd" ||
+        die "$casper_initrd does not match the rebuilt initramfs"
+}
+
+# ---------------------------------------------------------------------------
 # Welcome Center: Kzhento strings for kubuntu-notification-helper
 # ---------------------------------------------------------------------------
 apply_notification() {
@@ -616,6 +667,10 @@ patch_layer() {
     # After cleanup: the theme only reaches the boot screen once it is baked
     # into the initramfs, and that needs /proc and /sys inside the chroot.
     apply_plymouth_theme
+
+    # The rebuilt initramfs lives inside the layer; the ISO boots from casper/,
+    # so it has to be copied out before the layer is repacked.
+    sync_casper_boot
 
     log "Repacking $layer"
     mksquashfs "$ROOT_DIR" "$WORK_DIR/$layer" \

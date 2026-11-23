@@ -92,6 +92,9 @@ jobs:
       - name: Boot splash payload tests
         run: bash tests/plymouth-payload.test.sh
 
+      - name: Casper boot sync tests
+        run: bash tests/casper-boot-sync.test.sh
+
       - name: Release ISO probe tests
         # Fixture images are built here (squashfs + initramfs), so the probe's
         # two answers - branded passes, stock is reported - are both checked

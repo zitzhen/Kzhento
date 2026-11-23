@@ -271,4 +271,32 @@ grep -qx 'LOGO=start-here-kde' "$TMP/os-release" ||
     die "/etc/os-release does not set LOGO=start-here-kde"
 ok "os-release LOGO matches the About page icon"
 
+# 10. The initramfs GRUB loads must be the one this build created.
+#
+#     update-initramfs writes /boot/initrd.img-<kver> inside the layer, but the
+#     ISO boots from /casper/initrd, which lives outside every squashfs. A build
+#     that repacks the layer without copying the initramfs out still passes every
+#     check above - the theme file, the alternative and the artwork are all in
+#     the layer - while the boot screen keeps drawing the base ISO's artwork.
+#     That is how a fully branded image shipped with the stock Kubuntu logo, so
+#     the two files are compared byte for byte here.
+if grep -q '/casper/initrd' "$TMP/grub.cfg"; then
+    extract_iso /casper/initrd "$TMP/casper-initrd"
+
+    kernel=$(unsquashfs -lls "$TMP/$layer" /boot 2>/dev/null |
+        sed -n 's#.*squashfs-root/boot/initrd\.img-\([0-9][^ ]*\)$#\1#p' |
+        sort -V | tail -n1)
+    [ -n "$kernel" ] ||
+        die "Cannot find /boot/initrd.img-<kernel> in $layer to compare against casper/initrd"
+
+    unsquashfs -cat "$TMP/$layer" "/boot/initrd.img-$kernel" >"$TMP/boot-initrd" 2>/dev/null ||
+        die "Cannot read /boot/initrd.img-$kernel from $layer"
+
+    cmp -s "$TMP/boot-initrd" "$TMP/casper-initrd" ||
+        die "casper/initrd is not the rebuilt initramfs (differs from /boot/initrd.img-$kernel): the boot screen would keep the base ISO's artwork"
+    ok "casper/initrd is the rebuilt initramfs (kernel $kernel)"
+else
+    ok "GRUB does not load casper/initrd, nothing to sync"
+fi
+
 printf '\nAll artifact checks passed for %s\n' "$ISO"

@@ -166,6 +166,7 @@ Two details are worth knowing when changing this:
 - `watermark.png` in the stock `spinner` theme is a **dpkg symlink** to `/usr/share/pixmaps/ubuntu-logo-text-dark.png`. `edit-plymouth.sh` replaces it with a regular file, so the boot screen no longer depends on that pixmap, and `edit-pixmaps.sh` keeps the upstream file as `.zhento-orig`.
 - The Kzhento theme uses the `two-step` module, so it draws `animation-*.png` from its own `ImageDir`; the stock `spinner` theme's `throbber-*.png` frames are that theme's script assets and are deliberately **not** copied over. `edit-plymouth.sh` installs the rendered mark as `animation-0001.png`, and `tests/plymouth-payload.test.sh` keeps the theme file and the installer in agreement.
 - The theme only reaches the boot screen once it is baked into the **initramfs**, which is why `select-theme.sh` rebuilds it last, after the chroot is gone (it needs `/proc` and `/sys`).
+- Baking the initramfs into the **layer** is not enough: GRUB boots `/casper/initrd`, which lives outside every squashfs, while `update-initramfs` only writes `/boot/initrd.img-<kver>` inside the layer. `build.sh` copies the rebuilt initramfs to `casper/initrd` (and keeps `casper/vmlinuz` in step) before repacking, and `tests/casper-boot-sync.test.sh` pins that. Without it every branding check inside the layer still passes while the ISO boots the base ISO's stock artwork — which is exactly how the branded 0.1.0 release shipped showing the Kubuntu logo.
 
 Each step is skipped with a warning, not a failure, when its inputs are absent — so an image without KDE still builds.
 
@@ -210,6 +211,7 @@ The checks are arranged by increasing cost. The lower layers are mandatory PR ga
 | Login shell | `bash tests/terminal.test.sh` | bash; no root, no network | Yes |
 | Boot splash artwork | `bash tests/render.test.sh` | bash, Python 3 + Pillow, `logo/kzhento_transparent.png` (skipped if absent); no root, no network | Yes |
 | Boot splash payload | `bash tests/plymouth-payload.test.sh` | bash; no root, no network | Yes |
+| Casper boot sync | `bash tests/casper-boot-sync.test.sh` | bash; no root, no network | Yes |
 | Release ISO probe test | `bash tests/release-iso-probe.test.sh` | bash, `mksquashfs`, `cpio`, `gzip`; no root, no network | Yes |
 | Artifact verification | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`, `unsquashfs`, `md5sum`, `sha256sum` | No (blocks the build job) |
 | VM boot smoke | `bash tests/vm-smoke.sh <iso> [timeout]` | `qemu-system-x86_64`, OVMF | No (advisory) |
