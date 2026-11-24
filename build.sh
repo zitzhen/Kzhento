@@ -472,12 +472,33 @@ apply_plymouth_theme() {
 # whatever the base ISO's initramfs carried, which is why a fully branded image
 # still showed the stock Kubuntu logo.
 #
-# The kernel is the one casper/vmlinuz runs, so the initramfs has to be the
-# matching one; casper/vmlinuz is not rebuilt by this script, so it is only
-# re-copied when it differs.
+# Copying it wholesale is not enough. The live boot needs two files that a chroot
+# rebuild drops:
+#
+#   conf/uuid.conf                            which medium this initramfs belongs to
+#   conf/conf.d/default-boot-to-casper.conf   BOOT=casper instead of BOOT=local
+#
+# Neither is installed by the casper package: its initramfs hook writes them only
+# when CASPER_GENERATE_UUID is set, which the stock image build does and this
+# rebuild does not. Without them init falls back to BOOT=local, run-init has no
+# root to switch to, and PID 1 dies with "No root device specified" -> the
+# initramfs rescue shell -> "Attempted to kill init!" -> kernel panic.
+#
+# They are injected by unpacking every segment, adding the two files and packing
+# the tree back. Two cheaper shortcuts do not work and are worth recording:
+#
+#   - appending a small cpio segment at the end. The kernel reads the trailing
+#     segment as another archive and fails with "Initramfs unpacking failed:
+#     invalid magic at start of compressed archive", which is worse than the
+#     bug being fixed.
+#   - `cpio -id` on the archive. It stops at the first TRAILER!!! and unpacks
+#     only the leading microcode segment, silently losing the whole root tree.
+#
+# The repacked archive is one uncompressed cpio, the same shape the stock
+# casper/initrd has (early microcode is re-emitted first, in tree order).
 # ---------------------------------------------------------------------------
 sync_casper_boot() {
-    local kernel versioned casper_vmlinuz casper_initrd
+    local kernel versioned casper_vmlinuz casper_initrd casper_uuid work
 
     [ -f "$ROOT_DIR/etc/initramfs-tools/initramfs.conf" ] || {
         warn "No initramfs-tools in the image, skipping the casper/ boot file sync"
@@ -503,15 +524,118 @@ sync_casper_boot() {
         chmod 0644 "$casper_vmlinuz"
     fi
 
-    # Never leave a stale casper/initrd behind: if this copy fails the image would
-    # boot the base ISO's initramfs while every check inside the layer passes.
+    # The UUID must be the one the medium advertises, or casper refuses the disc
+    # it was built for (scripts/casper:matches_uuid compares it against
+    # /.disk/casper-uuid-*). A random UUID would be worse than none.
+    casper_uuid=$(head -n1 "$ISO_DIR/.disk/casper-uuid-generic" 2>/dev/null) || casper_uuid=''
+    [ -n "$casper_uuid" ] || {
+        warn "No .disk/casper-uuid-generic in the ISO tree; live boot may reject the rebuilt initramfs"
+        casper_uuid=$(uuidgen -r 2>/dev/null) || casper_uuid=''
+    }
+
+    work=$(mktemp -d "$WORK_DIR/casper-initrd.XXXXXX")
+    unpack_initramfs "$versioned" "$work/tree" ||
+        die "Cannot unpack the rebuilt initramfs: $versioned"
+
+    mkdir -p "$work/tree/conf/conf.d"
+    [ -n "$casper_uuid" ] && printf '%s\n' "$casper_uuid" >"$work/tree/conf/uuid.conf"
+    cat >"$work/tree/conf/conf.d/default-boot-to-casper.conf" <<'CONF'
+if [ -z "$BOOT" ]; then
+    export BOOT=casper
+fi
+CONF
+
+    repack_initramfs "$work/tree" "$work/initrd" ||
+        die "Cannot repack the casper initramfs"
+
     casper_initrd="$ISO_DIR/casper/initrd"
-    log "Installing the rebuilt initramfs as casper/initrd (kernel $kernel)"
-    cp -f "$versioned" "$casper_initrd.tmp" || die "Cannot write $casper_initrd"
-    chmod 0644 "$casper_initrd.tmp"
-    mv -f "$casper_initrd.tmp" "$casper_initrd" || die "Cannot replace $casper_initrd"
-    cmp -s "$versioned" "$casper_initrd" ||
-        die "$casper_initrd does not match the rebuilt initramfs"
+    log "Installing the rebuilt initramfs as casper/initrd (kernel $kernel, uuid ${casper_uuid:-none})"
+    chmod 0644 "$work/initrd"
+    mv -f "$work/initrd" "$casper_initrd" || die "Cannot replace $casper_initrd"
+    cmp -s "$versioned" "$casper_initrd" &&
+        die "casper/initrd equals the rebuilt initramfs: the live-boot config was not injected"
+
+    rm -rf "$work"
+}
+
+# unpack_initramfs <file> <dir>: expand every cpio segment of an initramfs.
+#
+# `cpio -id` alone stops at the first TRAILER!!!, so an archive that carries
+# microcode segments in front of the root tree unpacks to just the microcode.
+# The segments are walked explicitly and each one is unpacked into the same
+# tree; later entries overwrite earlier ones, which is what the kernel does.
+# A segment may be an uncompressed cpio or a compressed one.
+unpack_initramfs() {
+    local file=$1 dir=$2
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    python3 - "$file" "$dir" <<'PY' || return 1
+import os
+import subprocess
+import sys
+
+path, dest = sys.argv[1], sys.argv[2]
+data = open(path, 'rb').read()
+pos = 0
+unpacked = 0
+
+while pos < len(data):
+    # Skip alignment padding between segments.
+    while pos < len(data) and data[pos] == 0:
+        pos += 1
+    if pos >= len(data):
+        break
+
+    magic = data[pos:pos + 4]
+    if magic == b'\x28\xb5\x2f\xfd':            # zstd
+        raw = subprocess.run(['zstd', '-dc'], input=data[pos:],
+                             capture_output=True).stdout
+        consumed = len(data) - pos
+    elif magic[:2] == b'\x1f\x8b':              # gzip
+        raw = subprocess.run(['gzip', '-dc'], input=data[pos:],
+                             capture_output=True).stdout
+        consumed = len(data) - pos
+    elif data[pos:pos + 6] in (b'070701', b'070702'):   # uncompressed cpio
+        raw = data[pos:]
+        consumed = 0
+        # Walk this segment's entries to find its exact length.
+        i = pos
+        while i < len(data) and data[i:i + 6] in (b'070701', b'070702'):
+            hdr = data[i:i + 110]
+            nsize = int(hdr[94:102], 16)
+            fsize = int(hdr[54:62], 16)
+            name = data[i + 110:i + 110 + nsize - 1]
+            i += 110 + nsize
+            i = (i + 3) & ~3
+            i += fsize
+            i = (i + 3) & ~3
+            if name == b'TRAILER!!!':
+                break
+        raw = data[pos:i]
+        consumed = i - pos
+    else:
+        raise SystemExit('unrecognized initramfs segment at offset %d' % pos)
+
+    result = subprocess.run(['cpio', '-idm', '--quiet', '-D', dest],
+                            input=raw, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+    unpacked += 1
+
+    if consumed == 0:
+        break
+    pos += consumed
+
+if not unpacked:
+    raise SystemExit('no initramfs segment found in %s' % path)
+PY
+}
+
+# repack_initramfs <dir> <file>: write the tree back as one uncompressed cpio
+# archive, the layout the stock casper/initrd uses.
+repack_initramfs() {
+    local dir=$1 file=$2
+    (cd "$dir" && find . | cpio -o -H newc --quiet) >"$file" 2>/dev/null || return 1
+    [ -s "$file" ]
 }
 
 # ---------------------------------------------------------------------------
