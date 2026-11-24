@@ -114,4 +114,22 @@ grep -qF "$THEME_PATH" "$SELECT_SCRIPT" ||
     fail "select-theme.sh does not point default.plymouth at $THEME_PATH"
 ok "default.plymouth resolves to $THEME_PATH"
 
+# The machine's own logo has to stay on screen. two-step paints the firmware
+# image (/sys/firmware/acpi/bgrt/image) only when UseFirmwareBackground is true;
+# the module defaults it off, so a theme that omits the key silently drops the
+# OEM logo and shows a plain black background instead. The stock Kubuntu theme
+# sets it in [two-step] and in every phase section, and the branded theme has to
+# keep doing the same.
+for section in "$module" boot-up shutdown reboot; do
+    value=$(ini "$section" UseFirmwareBackground "")
+    [ "$value" = "true" ] ||
+        fail "UseFirmwareBackground is '${value:-<unset>}' in [$section]; the firmware (OEM) logo would not be drawn"
+done
+ok "firmware background is enabled in every phase, so the OEM logo stays"
+
+value=$(ini "$module" DialogClearsFirmwareBackground "")
+[ "$value" = "false" ] ||
+    fail "DialogClearsFirmwareBackground is '${value:-<unset>}'; a password prompt would wipe the OEM logo"
+ok "the firmware background is not cleared by dialogs"
+
 printf '\nplymouth payload checks passed\n'
