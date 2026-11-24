@@ -23,7 +23,7 @@ ok() { printf 'ok  %s\n' "$*"; }
 [ -n "$VERSION" ] || die "Usage: bash tests/verify-artifact.sh <iso> <version>"
 [ -f "$ISO" ] || die "ISO not found: $ISO"
 
-for c in xorriso unsquashfs md5sum sha256sum cmp awk sed grep; do
+for c in xorriso unsquashfs md5sum sha256sum cmp cpio python3 awk sed grep; do
     command -v "$c" >/dev/null 2>&1 || die "Missing command: $c"
 done
 
@@ -57,6 +57,63 @@ ok "UEFI boot catalog entry"
 extract_iso() {
     xorriso -osirrox on:auto_chmod_on -indev "$ISO" -extract "$1" "$2" >/dev/null 2>&1 ||
         die "Cannot extract $1 from ISO"
+}
+
+# unpack_initramfs <file> <dir>: expand every cpio segment of an initramfs.
+# `cpio -id` alone stops at the first TRAILER!!!, so an archive with microcode
+# segments in front of the root tree unpacks to just the microcode. Segments may
+# be uncompressed cpio or compressed; later entries win, as they do in the kernel.
+unpack_initramfs() {
+    local file=$1 dir=$2
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    python3 - "$file" "$dir" <<'PY' || return 1
+import subprocess
+import sys
+
+path, dest = sys.argv[1], sys.argv[2]
+data = open(path, 'rb').read()
+pos = 0
+found = 0
+
+while pos < len(data):
+    while pos < len(data) and data[pos] == 0:
+        pos += 1
+    if pos >= len(data):
+        break
+    magic = data[pos:pos + 4]
+    if magic == b'\x28\xb5\x2f\xfd':
+        raw = subprocess.run(['zstd', '-dc'], input=data[pos:],
+                             capture_output=True).stdout
+        pos = len(data)
+    elif magic[:2] == b'\x1f\x8b':
+        raw = subprocess.run(['gzip', '-dc'], input=data[pos:],
+                             capture_output=True).stdout
+        pos = len(data)
+    elif data[pos:pos + 6] in (b'070701', b'070702'):
+        i = pos
+        while i < len(data) and data[i:i + 6] in (b'070701', b'070702'):
+            hdr = data[i:i + 110]
+            nsize = int(hdr[94:102], 16)
+            fsize = int(hdr[54:62], 16)
+            name = data[i + 110:i + 110 + nsize - 1]
+            i += 110 + nsize
+            i = (i + 3) & ~3
+            i += fsize
+            i = (i + 3) & ~3
+            if name == b'TRAILER!!!':
+                break
+        raw = data[pos:i]
+        pos = i
+    else:
+        break
+    subprocess.run(['cpio', '-idm', '--quiet', '-D', dest], input=raw,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    found += 1
+
+if not found:
+    raise SystemExit('no initramfs segment found')
+PY
 }
 extract_iso /boot/grub/grub.cfg "$TMP/grub.cfg"
 extract_iso /md5sum.txt "$TMP/md5sum.txt"
@@ -271,15 +328,21 @@ grep -qx 'LOGO=start-here-kde' "$TMP/os-release" ||
     die "/etc/os-release does not set LOGO=start-here-kde"
 ok "os-release LOGO matches the About page icon"
 
-# 10. The initramfs GRUB loads must be the one this build created.
+# 10. The initramfs GRUB loads must be this build's, carrying the live-boot
+#     config.
 #
 #     update-initramfs writes /boot/initrd.img-<kver> inside the layer, but the
 #     ISO boots from /casper/initrd, which lives outside every squashfs. A build
 #     that repacks the layer without copying the initramfs out still passes every
 #     check above - the theme file, the alternative and the artwork are all in
 #     the layer - while the boot screen keeps drawing the base ISO's artwork.
-#     That is how a fully branded image shipped with the stock Kubuntu logo, so
-#     the two files are compared byte for byte here.
+#
+#     The file is not a plain copy either: the live boot needs conf/uuid.conf and
+#     conf/conf.d/default-boot-to-casper.conf, which a chroot rebuild drops. When
+#     they are missing init falls back to BOOT=local, run-init has no root to
+#     switch to and PID 1 dies - the kernel panic from issue #21. So the archive
+#     is unpacked and the three things are checked rather than compared byte for
+#     byte against the layer's copy, which is expected to differ.
 if grep -q '/casper/initrd' "$TMP/grub.cfg"; then
     extract_iso /casper/initrd "$TMP/casper-initrd"
 
@@ -289,12 +352,29 @@ if grep -q '/casper/initrd' "$TMP/grub.cfg"; then
     [ -n "$kernel" ] ||
         die "Cannot find /boot/initrd.img-<kernel> in $layer to compare against casper/initrd"
 
+    mkdir -p "$TMP/casper-tree"
+    unpack_initramfs "$TMP/casper-initrd" "$TMP/casper-tree" ||
+        die "Cannot unpack casper/initrd from the ISO"
+
+    [ -f "$TMP/casper-tree/init" ] ||
+        die "casper/initrd has no /init: it is not a usable initramfs"
+    ok "casper/initrd unpacks to a root tree"
+
+    [ -f "$TMP/casper-tree/conf/conf.d/default-boot-to-casper.conf" ] ||
+        die "casper/initrd is missing conf/conf.d/default-boot-to-casper.conf: BOOT falls back to local and PID 1 dies (issue #21)"
+    ok "casper/initrd carries the BOOT=casper config"
+
+    [ -f "$TMP/casper-tree/conf/uuid.conf" ] ||
+        die "casper/initrd is missing conf/uuid.conf: casper cannot identify the medium"
+    ok "casper/initrd carries conf/uuid.conf"
+
+    # The ISO's copy must be this build's, not the base image's: it is the
+    # rebuilt archive plus the injected config, so it cannot equal the layer's.
     unsquashfs -cat "$TMP/$layer" "/boot/initrd.img-$kernel" >"$TMP/boot-initrd" 2>/dev/null ||
         die "Cannot read /boot/initrd.img-$kernel from $layer"
-
-    cmp -s "$TMP/boot-initrd" "$TMP/casper-initrd" ||
-        die "casper/initrd is not the rebuilt initramfs (differs from /boot/initrd.img-$kernel): the boot screen would keep the base ISO's artwork"
-    ok "casper/initrd is the rebuilt initramfs (kernel $kernel)"
+    cmp -s "$TMP/casper-initrd" "$TMP/boot-initrd" &&
+        die "casper/initrd was not rebuilt for kernel $kernel: it is a plain copy"
+    ok "casper/initrd differs from the base ISO's copy"
 else
     ok "GRUB does not load casper/initrd, nothing to sync"
 fi
