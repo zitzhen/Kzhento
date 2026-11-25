@@ -104,7 +104,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends squashfs-tools cpio
           bash tests/release-iso-probe.test.sh
 
-      - name: Boot splash artwork tests
+      - name: Artwork tests (boot splash + distro icon)
         run: |
           python3 -m pip install --quiet pillow
 
@@ -120,6 +120,7 @@ jobs:
           echo "$sum  logo/kzhento_transparent.png" | sha256sum -c -
 
           bash tests/render.test.sh
+          bash tests/edit-icons.test.sh
 
   secrets:
     runs-on: ubuntu-24.04
