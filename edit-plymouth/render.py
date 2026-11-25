@@ -9,6 +9,10 @@
 #                         "minimal" theme and of the stock spinner theme
 #   <out>/throbber.png    the ringed "Kz" mark only, square, used as the spinner
 #                         frame in every throbber-*.png
+#   <out>/mark.png        the same ringed "Kz" mark, square and in the logo's own
+#                         colours, the master the desktop icons are scaled from
+#                         (edit-logo.sh/edit-icons.sh installs it as
+#                         start-here-kde, the App icon of the About page)
 #
 # Usage: render.py <logo dir> <output dir>
 #
@@ -26,6 +30,9 @@ from PIL import Image
 
 WATERMARK_WIDTH = 512
 THROBBER_SIZE = 48
+# The desktop icon master: large enough for the biggest size the icon themes
+# ask for, and a power of two so every smaller size is a clean downscale.
+ICON_SIZE = 512
 
 # The boot screen's ink: white, and a blue dim enough not to glare on black.
 INK = (255, 255, 255)
@@ -92,6 +99,20 @@ def recolour(img):
             colour = ACCENT if b > r + BLUE_MARGIN else INK
             dst[x, y] = colour + (alpha,)
     return coloured
+
+
+def repaint(mask, colours):
+    """Fill the ink of `mask` with the colours of `colours`.
+
+    Used for the desktop icon master: its cut-out has to be exactly the boot
+    screen's (same threshold, same specks dropped) while its RGB comes from the
+    untouched artwork. The alpha is therefore taken from the mask and only the
+    colour channels from the source, both at the source's full size so the same
+    crop applies to both.
+    """
+    out = colours.convert("RGBA").copy()
+    out.putalpha(mask)
+    return out
 
 
 def fit(image, width):
@@ -204,6 +225,38 @@ def drop_specks(image):
     return Image.composite(image, Image.new("RGBA", image.size, (0, 0, 0, 0)), kept)
 
 
+def ringed_mark(mask, image, bbox):
+    """The ringed "Kz" mark alone, cropped, on a square transparent canvas.
+
+    The ring is the tallest thing in the artwork, so its bottom is looked up in a
+    window as wide as it is tall; the underline then shows up as a bare gap under
+    the ring, while the wordmark, which starts further right, stays out of that
+    window. The right edge of the mark comes from the widest gap in the band
+    where the ring and the "K" are apart. Both numbers are taken over the same
+    window: taken over the whole artwork the gap search would run into the
+    wordmark's letters.
+
+    The canvas is square so the mark keeps its centre - the spinner rotates
+    around it, and the desktop icons are scaled from it.
+    """
+    height = bbox[3] - bbox[1]
+    window = mask.crop((bbox[0], bbox[1], bbox[0] + 2 * height, bbox[3]))
+    ring = ring_bottom(window)
+    split = icon_split(window.crop((0, 0, window.width, ring)))
+    icon = image.crop((bbox[0], bbox[1], bbox[0] + split, bbox[1] + ring))
+    icon_bbox = icon.getbbox()
+    if icon_bbox is not None:
+        icon = icon.crop(icon_bbox)
+    icon = drop_specks(icon)
+    icon_bbox = icon.getbbox()
+    if icon_bbox is not None:
+        icon = icon.crop(icon_bbox)
+    side = max(icon.size)
+    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    square.paste(icon, ((side - icon.width) // 2, (side - icon.height) // 2))
+    return square
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit("usage: render.py <logo dir> <output dir>")
@@ -215,6 +268,7 @@ def main():
         sys.exit(f"XX  logo not found: {source}")
 
     mask, coloured = load_source(source)
+    original = Image.open(source)
     bbox = mask.getbbox()
     if bbox is None:
         sys.exit(f"XX  logo has no visible ink: {source}")
@@ -223,32 +277,20 @@ def main():
     mark = fit(coloured.crop(bbox), WATERMARK_WIDTH)
     mark.save(out_dir / "watermark.png")
 
-    # Spinner frame: the ringed mark only, on a square transparent canvas so the
-    # rotation centre stays the centre of the mark. The ring is the tallest thing
-    # in the artwork, so its bottom is looked up in a window as wide as it is
-    # tall; the underline then shows up as a bare gap under the ring, while the
-    # wordmark, which starts further right, stays out of that window. The right
-    # edge of the mark comes from the widest gap in the band where the ring and
-    # the "K" are apart. Both numbers are taken over the same window: taken over
-    # the whole artwork the gap search would run into the wordmark's letters.
-    height = bbox[3] - bbox[1]
-    window = mask.crop((bbox[0], bbox[1], bbox[0] + 2 * height, bbox[3]))
-    ring = ring_bottom(window)
-    split = icon_split(window.crop((0, 0, window.width, ring)))
-    icon = coloured.crop((bbox[0], bbox[1], bbox[0] + split, bbox[1] + ring))
-    icon_bbox = icon.getbbox()
-    if icon_bbox is not None:
-        icon = icon.crop(icon_bbox)
-    icon = drop_specks(icon)
-    icon_bbox = icon.getbbox()
-    if icon_bbox is not None:
-        icon = icon.crop(icon_bbox)
-    side = max(icon.size)
-    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    square.paste(icon, ((side - icon.width) // 2, (side - icon.height) // 2))
-    fit(square, THROBBER_SIZE).save(out_dir / "throbber.png")
+    # Spinner frame and desktop icon master: the same ringed mark, cut the same
+    # way, but painted for where it is shown. The boot screen is black, so the
+    # spinner needs white ink; the desktop icons sit on light and dark panels, so
+    # they keep the logo's own blue.
+    ringed = ringed_mark(mask, coloured, bbox)
+    fit(ringed, THROBBER_SIZE).save(out_dir / "throbber.png")
+    brand = ringed_mark(mask, repaint(mask, original), bbox)
+    fit(brand, ICON_SIZE).save(out_dir / "mark.png")
 
-    print(f"==> watermark.png {mark.width}x{mark.height}, throbber.png {THROBBER_SIZE}x{THROBBER_SIZE}")
+    print(
+        f"==> watermark.png {mark.width}x{mark.height}, "
+        f"throbber.png {THROBBER_SIZE}x{THROBBER_SIZE}, "
+        f"mark.png {ICON_SIZE}x{ICON_SIZE}"
+    )
 
 
 if __name__ == "__main__":

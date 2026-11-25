@@ -68,9 +68,10 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   └── edit-terminal.sh      # 将所有已有账户切换为 zsh 并安装 Kzhento 的 .zshrc
 ├── edit-logo.sh/
 │   ├── edit-logo.sh          # 构建时下载并安装 Kzhento Logo
-│   └── edit-pixmaps.sh       # 用 Kzhento 字标替换 /usr/share/pixmaps/ubuntu-logo-text-dark.png
+│   ├── edit-pixmaps.sh       # 用 Kzhento 字标替换 /usr/share/pixmaps/ubuntu-logo-text-dark.png
+│   └── edit-icons.sh         # 替换 start-here-kde 图标（「关于本系统」与启动器）
 ├── edit-plymouth/
-│   ├── render.py             # 由 Logo 渲染开机画面素材（水印 + 转圈图标）
+│   ├── render.py             # 由 Logo 渲染开机画面素材与图标母版
 │   ├── plymouth/minimal.plymouth # Kzhento 开机主题（two-step 模块）
 │   ├── edit-plymouth.sh      # 将主题与素材安装到目标根目录
 │   └── select-theme.sh       # 选定主题并重建 initramfs（需 root）
@@ -87,7 +88,7 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   └── Installer.sh          # 桌面安装器（snap）配置
 ├── scripts/
 │   └── download-release.*    # 下载 GitHub Release 的全部资产（sh / ps1 / cmd）
-├── tests/                    # 六层冒烟测试（详见 tests/README.md）
+├── tests/                    # 分层冒烟测试（详见 tests/README.md）
 └── .github/                  # Issue/PR 模板、CI 工作流、自动标签
 ```
 
@@ -150,19 +151,23 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 ### 品牌替换
 
-Kubuntu 自带的视觉元素在四个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
+Kubuntu 自带的视觉元素在五个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
 
 | 位置 | 由什么控制 | 对应步骤 |
 |---|---|---|
 | 开机画面（Plymouth） | `/usr/share/plymouth/themes/minimal` + `default.plymouth` | `edit-plymouth/edit-plymouth.sh`，随后 `select-theme.sh` |
 | `/usr/share/pixmaps` 里的发行版字标 | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
+| 发行版图标（`start-here-kde`） | 各图标主题的 `places/*/start-here-kde.*` | `edit-logo.sh/edit-icons.sh` |
 | 欢迎中心通知 | `kubuntu-notification-helper.mo` 语言包 | `edit-notification/edit-notification.sh` |
 | 「关于本系统」页面 | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
 
-开机画面素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）和 48×48 的转圈帧（带圆环的「Kz」），把炭灰色墨迹改为白色、保留蓝色点缀。`tests/render.test.sh` 校验其输出。
+开机画面素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）、48×48 的转圈帧与 512×512 的图标母版，后两者取自同一块带圆环的「Kz」。转圈帧按黑底重新着色（炭灰墨迹改白、保留蓝色点缀），图标母版保留 Logo 自身的颜色，因为它要显示在浅色与深色桌面上。`tests/render.test.sh` 校验这三种输出。
 
-改动这部分时有两点需要知道：
+「关于本系统」页面**不接受图片路径**：`kcm_about-distro` 把 `LogoPath` 交给 `QIcon::fromTheme()`，而它只解析图标*名称*。所以该页面的 Logo 就是这个 `start-here-kde` 图标，把它换成 Kzhento 的是 `edit-logo.sh/edit-icons.sh`。该脚本为 Breeze、Breeze Dark 与 hicolor 的每个尺寸目录（16 px 到 512 px，含 HiDPI 变体）写入 PNG，并把系统自带的 KDE SVG 保留为 `start-here-kde.svg.zhento-orig` 后**删除**——只遮挡不删除的话，偏好 SVG 的加载器仍会退回原图。Plasma 的应用启动器用的正是同一个图标名，因此启动器也由这一步一并换掉，`tests/edit-icons.test.sh` 覆盖了它。
 
+改动这部分时需要注意：
+
+- 系统自带的 Breeze 里，`places/@2x` 与 `@3x` 目录是**指向普通目录的符号链接**，因此多个图标名会解析到同一个目录。`edit-icons.sh` 按真实路径去重并取其中最大的尺寸；若逐个名字写入，最终会在主题按 16 px 读取的目录里留下 48 px 的图。
 - 系统自带 `spinner` 主题里的 `watermark.png` 是 **dpkg 符号链接**，指向 `/usr/share/pixmaps/ubuntu-logo-text-dark.png`。`edit-plymouth.sh` 会把它换成普通文件，使开机画面不再依赖那张 pixmap；`edit-pixmaps.sh` 则把上游文件保留为 `.zhento-orig`。
 - Kzhento 主题使用 `two-step` 模块，绘制的是自己 `ImageDir` 里的 `animation-*.png`；系统自带 `spinner` 主题的 `throbber-*.png` 是该主题脚本的素材，**不会**被复制过来。`edit-plymouth.sh` 把渲染出的图标安装为 `animation-0001.png`，`tests/plymouth-payload.test.sh` 负责保证主题文件与安装脚本一致。
 - 电脑主机自己的开机 Logo 要保留：`two-step` 只在 `UseFirmwareBackground` 为 true 时才绘制固件图像（`/sys/firmware/acpi/bgrt/image`），而该键默认关闭。系统自带的 Kubuntu 主题在 `[two-step]` 与每个阶段小节里都设了它，`minimal.plymouth` 同样如此；漏掉这个键会让 OEM Logo 静默消失、只剩黑底。`tests/plymouth-payload.test.sh` 断言该键出现在模块会读取的每一处。
@@ -202,14 +207,14 @@ Windows 用户可使用 `scripts\download-release.ps1`（PowerShell）或 `scrip
 
 ## 测试
 
-六层检查按成本从低到高排列。较低层是 PR 的强制门禁，较高层在构建/发布期间作为补充验收。
+分层检查按成本从低到高排列。较低层是 PR 的强制门禁，较高层在构建/发布期间作为补充验收。
 
 | 层级 | 命令 | 依赖 | 阻断 PR |
 |---|---|---|---|
 | 单元测试 / 版本一致性 | `node --test tests/*.test.js` 和 `bash tests/check-version-consistency.sh` | Node.js 22+；无需 root、无需网络 | 是 |
 | 预检（mock） | `bash tests/preflight.test.sh` | bash；无需 root、无需网络 | 是 |
 | 登录终端 | `bash tests/terminal.test.sh` | bash；无需 root、无需网络 | 是 |
-| 开机画面素材 | `bash tests/render.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无需 root、无需网络 | 是 |
+| 素材渲染（开机画面 + 发行版图标） | `bash tests/render.test.sh`、`bash tests/edit-icons.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无需 root、无需网络 | 是 |
 | 产物验证 | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`、`unsquashfs`、`md5sum`、`sha256sum` | 否（在 build job 内阻断构建） |
 | VM 启动冒烟 | `bash tests/vm-smoke.sh <iso> [超时秒数]` | `qemu-system-x86_64`、OVMF | 否（仅供参考） |
 
@@ -221,6 +226,7 @@ bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/terminal.test.sh
 bash tests/render.test.sh
+bash tests/edit-icons.test.sh
 ```
 
 详情与安全注意事项见 [tests/README.md](tests/README.md)。

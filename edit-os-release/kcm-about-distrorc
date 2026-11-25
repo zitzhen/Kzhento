@@ -10,9 +10,10 @@
 # another tool.
 
 [General]
-# Icon name shown next to the product name. Resolved through the icon theme,
-# so a Kzhento package that ships start-here-kde will be picked up without
-# touching this file. kinfocenter falls back to it when LogoPath is empty.
+# Icon name shown next to the product name. It is resolved through the icon
+# theme, so it has to be an installed icon, not a path: edit-logo.sh/edit-icons.sh
+# installs the Kzhento mark under this name. kinfocenter falls back to it when
+# LogoPath is empty.
 LogoPath=start-here-kde
 # Product name and version, rendered as "<Name> <Version>".
 Name=K-Zhento

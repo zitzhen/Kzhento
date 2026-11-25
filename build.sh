@@ -104,7 +104,8 @@ preflight_checks() {
     local d
     for d in edit-plymouth/edit-plymouth.sh edit-plymouth/select-theme.sh \
         edit-plymouth/render.py edit-plymouth/plymouth/minimal.plymouth \
-        edit-logo.sh/edit-pixmaps.sh edit-notification/edit-notification.sh \
+        edit-logo.sh/edit-pixmaps.sh edit-logo.sh/edit-icons.sh \
+        edit-notification/edit-notification.sh \
         edit-os-release/edit-about-system.sh edit-os-release/kcm-about-distrorc; do
         if [ ! -f "$SELF_DIR/$d" ]; then
             warn "Branding input missing, its step will be skipped: $d"
@@ -428,6 +429,32 @@ apply_pixmap_logo() {
 
     log "Installing Kzhento wordmark"
     sh "$script" "$SELF_DIR/logo" "$ROOT_DIR" || die "Failed to install wordmark"
+}
+
+# ---------------------------------------------------------------------------
+# Distro icon: replace the stock start-here-kde artwork. This is what the "About
+# this System" page draws (LogoPath=start-here-kde) and what Plasma uses for the
+# application launcher, so it has to be the Kzhento mark, not the KDE bundle's.
+# ---------------------------------------------------------------------------
+apply_icons() {
+    local script="$SELF_DIR/edit-logo.sh/edit-icons.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-logo.sh/edit-icons.sh is missing, skipping the distro icon"
+        return 0
+    }
+    # The step rewrites the start-here-kde entries of the icon themes' Places
+    # directories; an image without KDE has neither, and then there is no About
+    # page to brand either. Check for the directory the step actually writes,
+    # not just for /usr/share/icons, so a half-present tree is a skip with a
+    # reason rather than a failure halfway through the install.
+    if ! ls -d "$ROOT_DIR"/usr/share/icons/*/places >/dev/null 2>&1; then
+        warn "No icon theme with Places directories in the image, skipping the distro icon"
+        return 0
+    fi
+
+    log "Installing Kzhento start-here-kde icon"
+    sh "$script" "$SELF_DIR/logo" "$ROOT_DIR" || die "Failed to install the distro icon"
 }
 
 # ---------------------------------------------------------------------------
@@ -776,6 +803,7 @@ patch_layer() {
     apply_about_system
     apply_logo
     apply_pixmap_logo
+    apply_icons
     apply_plymouth
     apply_notification
     apply_useradd_defaults
