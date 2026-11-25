@@ -43,6 +43,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 
 - **品牌重塑** —— `/etc/os-release` 與 GRUB 開機選單是 Kzhento 的品牌入口（目前仍沿用繼承而來的 ZhenTo 字樣）。
 - **內建 Logo** —— 建置時從 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下載 Kzhento Logo（固定 commit + SHA256 檢查），安裝至 `/usr/share/backgrounds/kzhento/`， repository 中不再存放二進位圖片。
+- **發行版圖示** —— `start-here-kde` 換成 Kzhento 圓環「Kz」標記：它是「關於此系統」頁面顯示的 Logo（該頁只接受圖示*名稱*，由 `QIcon::fromTheme()` 解析），也是 Plasma 應用程式啟動器所用的圖示名。由 `edit-logo.sh/edit-icons.sh` 為 Breeze、Breeze Dark 與 hicolor 的每個尺寸目錄寫入 PNG，並移除原本的 KDE SVG（保留為 `.zhento-orig`）。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
 - **所有帳號使用 zsh** —— 既有帳號切換為 `/bin/zsh` 並安裝啟用 Starship 的 `.zshrc`，`/etc/default/useradd` 讓新建帳號使用相同 shell。
@@ -65,7 +66,9 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 ├── edit-terminal/
 │   └── edit-terminal.sh      # 將所有既有帳號切換為 zsh 並安裝 Kzhento 的 .zshrc
 ├── edit-logo.sh/
-│   └── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
+│   ├── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
+│   ├── edit-pixmaps.sh       # 以 Kzhento 字標取代 /usr/share/pixmaps/ubuntu-logo-text-dark.png
+│   └── edit-icons.sh         # 取代 start-here-kde 圖示（「關於此系統」與啟動器）
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # 將 SHELL=/bin/zsh 寫入 /etc/default/useradd（新建帳號）
 │   ├── useradd               # Kzhento 的 /etc/default/useradd
@@ -76,7 +79,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 │   └── Installer.sh          # 桌面安裝程式（snap）設定
 ├── scripts/
 │   └── download-release.*    # 下載 GitHub Release 的全部資產（sh / ps1 / cmd）
-├── tests/                    # 五層煙霧測試（詳見 tests/README.md）
+├── tests/                    # 分層煙霧測試（詳見 tests/README.md）
 └── .github/                  # Issue/PR 範本、CI 工作流程、自動標籤
 ```
 
@@ -169,7 +172,7 @@ Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `sc
 
 ## 測試
 
-五層檢查依成本由低至高排列。較低層是 PR 的強制關卡，較高層在建置／發行期間作為補充驗收。
+分層檢查依成本由低至高排列。較低層是 PR 的強制關卡，較高層在建置／發行期間作為補充驗收。
 
 | 層級 | 指令 | 依賴 | 阻斷 PR |
 |---|---|---|---|
