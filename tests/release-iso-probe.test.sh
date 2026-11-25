@@ -75,6 +75,11 @@ make_image() {
         done
         printf '[General]\nName=K-Zhento\nLogoPath=start-here-kde\n' >"$root/etc/xdg/kcm-about-distrorc"
         printf 'PRETTY_NAME="KzhenTo 0.1.0"\nLOGO=start-here-kde\n' >"$root/etc/os-release"
+        mkdir -p "$root/usr/share/icons/hicolor/128x128/places" \
+            "$root/usr/share/icons/breeze/places/64"
+        printf '\211PNG\r\n\032\n' >"$root/usr/share/icons/hicolor/128x128/places/start-here-kde.png"
+        printf '\211PNG\r\n\032\n' >"$root/usr/share/icons/breeze/places/64/start-here-kde.png"
+        printf '<svg/>' >"$root/usr/share/icons/breeze/places/64/start-here-kde.svg.zhento-orig"
         ln -s ../usr/share/plymouth/themes/minimal/minimal.plymouth \
             "$root/etc/alternatives/default.plymouth"
     else
@@ -86,6 +91,10 @@ make_image() {
         printf '[General]\nName=Kubuntu\nLogoPath=/usr/share/plasma/avatars/kubuntu-bug.png\n' \
             >"$root/etc/xdg/kcm-about-distrorc"
         printf 'PRETTY_NAME="Kubuntu 26.04.1 LTS"\nLOGO=ubuntu-logo\n' >"$root/etc/os-release"
+        # The stock image names the icon but does not install it: the KDE
+        # artwork lives in the theme as an SVG.
+        mkdir -p "$root/usr/share/icons/breeze/places/64"
+        printf '<svg/>' >"$root/usr/share/icons/breeze/places/64/start-here-kde.svg"
         ln -s /usr/share/plymouth/themes/kubuntu-logo/kubuntu-logo.plymouth \
             "$root/etc/alternatives/default.plymouth"
     fi
@@ -152,6 +161,8 @@ for expected in \
     "welcome center catalogue not branded: en" \
     "welcome center catalogue not branded: zh_CN" \
     "about page name is not K-Zhento" \
+    "about page icon missing: no hicolor 128x128/places/start-here-kde.png" \
+    "breeze still ships the stock start-here-kde.svg next to the Kzhento PNG" \
     "/etc/os-release LOGO=ubuntu-logo" \
     "root login shell is /bin/bash" \
     "/etc/default/useradd does not default to /bin/zsh"; do

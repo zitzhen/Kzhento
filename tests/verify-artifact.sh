@@ -328,6 +328,51 @@ grep -qx 'LOGO=start-here-kde' "$TMP/os-release" ||
     die "/etc/os-release does not set LOGO=start-here-kde"
 ok "os-release LOGO matches the About page icon"
 
+# The icon name has to resolve inside the image, and to the Kzhento mark rather
+# than the KDE one. The page asks for an icon *name* (QIcon::fromTheme), so a
+# file path would silently draw nothing; and the stock Breeze artwork is an SVG
+# that must be gone, or a loader preferring SVG keeps drawing the KDE logo.
+#
+# The 128 px hicolor copy is the one the About page resolves: Kirigami asks for
+# iconSizes.enormous, which is 128, and hicolor is the theme every toolkit falls
+# back to. The size is read from the PNG header, not trusted from the path.
+unsquashfs -cat "$TMP/$layer" /usr/share/icons/hicolor/128x128/places/start-here-kde.png \
+    >"$TMP/about-icon.png" 2>/dev/null ||
+    die "Missing in image: /usr/share/icons/hicolor/128x128/places/start-here-kde.png"
+[ "$(head -c 8 "$TMP/about-icon.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] ||
+    die "The About page icon is not a PNG"
+python3 - "$TMP/about-icon.png" <<'PY' || die "The About page icon is not a 128 px image"
+import struct
+import sys
+
+with open(sys.argv[1], "rb") as f:
+    head = f.read(24)
+width, height = struct.unpack(">II", head[16:24])
+if (width, height) != (128, 128):
+    sys.exit(f"{width}x{height}")
+PY
+ok "About page icon installed at 128x128 (start-here-kde in hicolor)"
+
+# Breeze is the desktop's theme, so the launcher's copy matters too. Its stock
+# file is an SVG; a PNG of the same name next to it would be ambiguous, so the
+# build moves the SVG aside and removes it.
+mode=$(unsquashfs -lls "$TMP/$layer" /usr/share/icons/breeze/places/64/start-here-kde.png 2>/dev/null |
+    sed -n 's/^\([^ ]*\) [^ ]* *[0-9]* [0-9-]* [0-9:]* squashfs-root\(.*\)$/\1 \2/p' |
+    awk '$2 == "/usr/share/icons/breeze/places/64/start-here-kde.png" { print $1; exit }')
+case "$mode" in
+-*) ok "breeze start-here-kde.png is a regular file" ;;
+"") die "Missing in image: /usr/share/icons/breeze/places/64/start-here-kde.png" ;;
+*) die "breeze start-here-kde.png is not a regular file (mode $mode)" ;;
+esac
+if unsquashfs -cat "$TMP/$layer" /usr/share/icons/breeze/places/64/start-here-kde.svg \
+    >/dev/null 2>&1; then
+    die "The stock KDE start-here-kde.svg is still in the image; it must be removed, not just shadowed"
+fi
+unsquashfs -cat "$TMP/$layer" /usr/share/icons/breeze/places/64/start-here-kde.svg.zhento-orig \
+    >/dev/null 2>&1 ||
+    die "The stock start-here-kde.svg was not kept as .zhento-orig"
+ok "breeze keeps the Kzhento PNG and the stock SVG only as .zhento-orig"
+
 # 10. The initramfs GRUB loads must be this build's, carrying the live-boot
 #     config.
 #

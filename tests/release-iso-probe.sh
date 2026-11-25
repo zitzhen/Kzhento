@@ -215,6 +215,24 @@ else
     stock "about page logo is not start-here-kde"
 fi
 
+# The name in the rc file only helps if the icon exists in the image: the page
+# draws it through QIcon::fromTheme, so a missing icon means a missing logo (or,
+# worse, the KDE one, if the theme still ships its own start-here-kde).
+if present usr/share/icons/hicolor/128x128/places/start-here-kde.png; then
+    branded "about page icon installed: hicolor 128x128/start-here-kde.png"
+else
+    stock "about page icon missing: no hicolor 128x128/places/start-here-kde.png"
+fi
+# Breeze's stock artwork for that name is an SVG. A bitmap next to it is
+# ambiguous: whichever the loader prefers wins, so the SVG has to be gone.
+if present usr/share/icons/breeze/places/64/start-here-kde.svg; then
+    stock "breeze still ships the stock start-here-kde.svg next to the Kzhento PNG"
+elif present usr/share/icons/breeze/places/64/start-here-kde.png; then
+    branded "breeze start-here-kde is the Kzhento PNG (stock SVG removed)"
+else
+    stock "breeze has no start-here-kde at all"
+fi
+
 osrel=$(image /etc/os-release || true)
 logo=$(printf '%s\n' "$osrel" | sed -n 's/^LOGO=//p')
 if [ "$logo" = "start-here-kde" ]; then
