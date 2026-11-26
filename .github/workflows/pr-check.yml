@@ -121,6 +121,7 @@ jobs:
 
           bash tests/render.test.sh
           bash tests/edit-icons.test.sh
+          bash tests/edit-welcome.test.sh
 
   secrets:
     runs-on: ubuntu-24.04
