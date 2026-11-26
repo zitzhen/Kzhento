@@ -73,6 +73,9 @@ make_image() {
         for lang in en zh_CN; do
             printf 'K-Zhento' >"$root/usr/share/locale/$lang/LC_MESSAGES/kubuntu-notification-helper.mo"
         done
+        mkdir -p "$root/usr/share/plasma/plasma-welcome/extra-pages"
+        printf 'GenericPage {\n    heading: i18nc("@info:window", "Welcome to K-Zhento | Friendly Computing")\n}\n' \
+            >"$root/usr/share/plasma/plasma-welcome/extra-pages/01-Kubuntu.qml"
         printf '[General]\nName=K-Zhento\nLogoPath=start-here-kde\n' >"$root/etc/xdg/kcm-about-distrorc"
         printf 'PRETTY_NAME="KzhenTo 0.1.0"\nLOGO=start-here-kde\n' >"$root/etc/os-release"
         mkdir -p "$root/usr/share/icons/hicolor/128x128/places" \
@@ -88,6 +91,9 @@ make_image() {
         for lang in en zh_CN; do
             printf 'Kubuntu' >"$root/usr/share/locale/$lang/LC_MESSAGES/kubuntu-notification-helper.mo"
         done
+        mkdir -p "$root/usr/share/plasma/plasma-welcome/extra-pages"
+        printf 'GenericPage {\n    heading: i18nc("@info:window", "Welcome to Kubuntu | Friendly Computing")\n}\n' \
+            >"$root/usr/share/plasma/plasma-welcome/extra-pages/01-Kubuntu.qml"
         printf '[General]\nName=Kubuntu\nLogoPath=/usr/share/plasma/avatars/kubuntu-bug.png\n' \
             >"$root/etc/xdg/kcm-about-distrorc"
         printf 'PRETTY_NAME="Kubuntu 26.04.1 LTS"\nLOGO=ubuntu-logo\n' >"$root/etc/os-release"
@@ -160,6 +166,7 @@ for expected in \
     "/usr/share/backgrounds/kzhento is missing" \
     "welcome center catalogue not branded: en" \
     "welcome center catalogue not branded: zh_CN" \
+    "welcome center page is not K-Zhento" \
     "about page name is not K-Zhento" \
     "about page icon missing: no hicolor 128x128/places/start-here-kde.png" \
     "breeze still ships the stock start-here-kde.svg next to the Kzhento PNG" \

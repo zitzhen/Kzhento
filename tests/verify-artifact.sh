@@ -315,6 +315,42 @@ for lang in en zh_CN; do
     ok "Welcome Center catalogue present and rebranded: $lang"
 done
 
+# The Welcome Center's own first page. The catalogue above only brands the
+# notification that opens the window; the page itself is QML with the Kubuntu
+# text and artwork written into it, so a build that stops at the catalogue shows
+# a window titled K-Zhento containing Kubuntu's tour.
+about_page=usr/share/plasma/plasma-welcome/extra-pages/01-Kubuntu.qml
+unsquashfs -cat "$TMP/$layer" "/$about_page" >"$TMP/welcome-page.qml" 2>/dev/null ||
+    die "Missing in image: /$about_page"
+grep -q 'Welcome to K-Zhento' "$TMP/welcome-page.qml" ||
+    die "The Welcome Center page heading is not K-Zhento"
+if grep -qi 'kubuntu\.org' "$TMP/welcome-page.qml"; then
+    die "The Welcome Center page still links to kubuntu.org"
+fi
+ok "Welcome Center page rebranded: /$about_page"
+
+# It draws a wordmark from the image, so the page is only correct if that file is
+# there too - a missing PNG is a blank slot, not a fallback.
+unsquashfs -cat "$TMP/$layer" /usr/share/plasma/plasma-welcome/extra-pages/kzhento-logo.png \
+    >"$TMP/welcome-logo.png" 2>/dev/null ||
+    die "Missing in image: /usr/share/plasma/plasma-welcome/extra-pages/kzhento-logo.png"
+[ "$(head -c 8 "$TMP/welcome-logo.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] ||
+    die "The Welcome Center wordmark is not a PNG"
+ok "Welcome Center wordmark present"
+
+# The stock page is kept for rollback, and *only* as the backup: a second *.qml
+# in that directory is enumerated by plasma-welcome as one more page.
+if unsquashfs -cat "$TMP/$layer" \
+    /usr/share/plasma/plasma-welcome/extra-pages/01-Kubuntu.qml.zhento-orig >/dev/null 2>&1; then
+    ok "stock Welcome Center page kept as .zhento-orig"
+else
+    die "The stock Welcome Center page was not kept as .zhento-orig"
+fi
+pages=$(unsquashfs -ll "$TMP/$layer" /usr/share/plasma/plasma-welcome/extra-pages 2>/dev/null |
+    awk '$NF ~ /\.qml$/ { n++ } END { print n + 0 }')
+[ "$pages" -eq 1 ] || die "$pages .qml pages in extra-pages, expected exactly 1"
+ok "exactly one Welcome Center page in the image"
+
 unsquashfs -cat "$TMP/$layer" /etc/xdg/kcm-about-distrorc >"$TMP/kcm-about-distrorc" 2>/dev/null ||
     die "Missing in image: /etc/xdg/kcm-about-distrorc"
 grep -qx 'Name=K-Zhento' "$TMP/kcm-about-distrorc" ||
