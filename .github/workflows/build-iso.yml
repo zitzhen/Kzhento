@@ -4,9 +4,26 @@ name: Build ISO
 #   - manual (workflow_dispatch), with a version and a base ISO
 #   - push of a v* tag
 #
-# Artifacts:
-#   - UEFI-only ISO, split into compressed volumes of 1800M each (well under GitHub's 2G limit)
-#   - a draft release is created automatically
+# Jobs:
+#   build   - unpack the base ISO, patch it in a chroot, repack it, and upload
+#             the finished ISO (+ checksums) as a workflow artifact
+#   release - download that artifact, verify it, split it into compressed
+#             volumes and upload them, then create a draft release
+#
+# Why build and release are separate jobs: everything after the ISO exists
+# (verification, splitting, uploading ~5.4G) fails for reasons that have
+# nothing to do with the image - a flaky upload, a draft release that already
+# exists, an assertion that needs another look. "Re-run failed jobs" then only
+# redoes the tail, in minutes, and the ISO stays behind in the artifact for
+# debugging instead of being rebuilt. The artifact is stored uncompressed,
+# since the ISO inside it is already incompressible.
+#
+# Neither job takes version/tag/base ISO from a previous job's outputs: a
+# retried job does not receive them, so each job resolves them itself with
+# scripts/resolve-meta.sh.
+#
+# Disk: GitHub-hosted runners have ~86G free, the build job peaks around 23G,
+# the release job around 15G.
 
 on:
   workflow_dispatch:
@@ -31,8 +48,11 @@ permissions:
   contents: write
 
 concurrency:
+  # A release build must not be cancelled by a second dispatch: uploading the
+  # volumes and creating the draft release have to run to completion. A newer
+  # request queues behind the running one instead of killing it.
   group: build-iso-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   DEFAULT_BASE_ISO_URL: https://cdimage.ubuntu.com/kubuntu/releases/26.04.1/release/kubuntu-26.04.1-desktop-amd64.iso
@@ -49,6 +69,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve version and base ISO
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BASE_URL: ${{ inputs.base_iso_url }}
+          INPUT_BASE_SHA: ${{ inputs.base_iso_sha256 }}
+        run: ./scripts/resolve-meta.sh
 
       - name: Free disk space
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -82,44 +112,12 @@ jobs:
           # edit-plymouth/render.py, which needs Pillow on the host.
           python3 -c 'import PIL; print("Pillow", PIL.__version__)'
 
-      - name: Compute version
-        id: meta
-        run: |
-          set -e
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-            BASE_URL="${{ inputs.base_iso_url }}"
-            BASE_SHA="${{ inputs.base_iso_sha256 }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-            BASE_URL="${DEFAULT_BASE_ISO_URL}"
-            BASE_SHA=""
-          fi
-          [ -n "$VERSION" ] || { echo "XX Version is empty" >&2; exit 1; }
-          {
-            echo "version=${VERSION}"
-            echo "tag=v${VERSION}"
-            echo "base_url=${BASE_URL}"
-            echo "base_sha=${BASE_SHA}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Version: ${VERSION}"
-
-      - name: Compute base ISO cache key
-        id: iso-key
-        env:
-          URL: ${{ steps.meta.outputs.base_url }}
-          SHA: ${{ steps.meta.outputs.base_sha }}
-        run: |
-          set -e
-          key=$(printf '%s|%s' "$URL" "$SHA" | sha256sum | cut -c1-16)
-          echo "key=base-iso-${key}" >> "$GITHUB_OUTPUT"
-
       - name: Restore base ISO cache
         id: iso-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/cache/base.iso
-          key: ${{ steps.iso-key.outputs.key }}
+          key: ${{ steps.meta.outputs.iso_key }}
 
       - name: Download base ISO
         env:
@@ -146,7 +144,7 @@ jobs:
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/cache/base.iso
-          key: ${{ steps.iso-key.outputs.key }}
+          key: ${{ steps.meta.outputs.iso_key }}
 
       - name: Preflight check
         env:
@@ -155,7 +153,7 @@ jobs:
         run: |
           sudo env \
             BASE_ISO="${BASE_ISO}" \
-            VERSION="${{ steps.meta.outputs.version }}" \
+            VERSION="${VERSION}" \
             WORK_DIR="${WORK_DIR}" \
             OUT_DIR="${OUT_DIR}" \
             SQUASHFS_COMP="${SQUASHFS_COMP}" \
@@ -169,40 +167,108 @@ jobs:
         run: |
           sudo env \
             BASE_ISO="${BASE_ISO}" \
-            VERSION="${{ steps.meta.outputs.version }}" \
+            VERSION="${VERSION}" \
             WORK_DIR="${WORK_DIR}" \
             OUT_DIR="${OUT_DIR}" \
             SQUASHFS_COMP="${SQUASHFS_COMP}" \
             SQUASHFS_BLOCK="${SQUASHFS_BLOCK}" \
             ./build.sh
 
-      - name: Verify artifact
-        env:
-          VERSION: ${{ steps.meta.outputs.version }}
+      - name: Generate checksums
         run: |
-          bash tests/verify-artifact.sh \
-            "${RUNNER_TEMP}/out/zhenTo-${VERSION}-amd64.iso" "$VERSION"
+          set -e
+          cd "${RUNNER_TEMP}/out"
+          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+          # build.sh already wrote the md5. The sha256 is produced here, before
+          # verification, so verify-artifact.sh can actually check it (it looks
+          # for a file that used to be created only after verification) and so
+          # the release job ships the same bytes it verified.
+          sha256sum "${ISO_NAME}" > "${ISO_NAME}.sha256"
+          cat "${ISO_NAME}.sha256"
+          ls -lh
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          # The ISO is already compressed; re-compressing it only burns CPU.
+          compression-level: 0
+          overwrite: true
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso
+            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256
+            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.md5
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    # Verification (~1 min, it extracts the casper layer into TMPDIR so it
+    # needs ~5G of scratch), splitting ~5.1G into 1800M volumes, and uploading
+    # ~5.4G. Generous: a slow upload is not a failure.
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Resolve version
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BASE_URL: ${{ inputs.base_iso_url }}
+          INPUT_BASE_SHA: ${{ inputs.base_iso_sha256 }}
+        run: ./scripts/resolve-meta.sh
+
+      - name: Check available disk space
+        run: |
+          set -e
+          df -h
+          avail_gb=$(df -Pk . | awk 'NR==2{print int($4/1024/1024)}')
+          echo "Available space: ${avail_gb}G"
+          # ISO (5.1G) + the layer verify-artifact.sh copies into TMPDIR (~5G)
+          # + the split volumes (~5.1G) peaks around 15G. This job never
+          # unpacks the whole rootfs and does not need free-disk-space.
+          if [ "$avail_gb" -lt 20 ]; then
+            echo "XX Not enough disk space (needs >= 20G, peak usage is ~15G)" >&2
+            exit 1
+          fi
+
+      - name: Install verification dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xorriso squashfs-tools cpio zstd
+          xorriso -version | head -n1
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          path: dist
+
+      - name: Verify artifact
+        run: |
+          ls -lh dist
+          bash tests/verify-artifact.sh "dist/zhenTo-${VERSION}-amd64.iso" "$VERSION"
 
       - name: Split into compressed volumes
-        env:
-          VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -e
           ISO_NAME="zhenTo-${VERSION}-amd64.iso"
-          mkdir -p dist
-          cp "${RUNNER_TEMP}/out/${ISO_NAME}" dist/
-          cp "${RUNNER_TEMP}/out/zhenTo-${VERSION}-amd64.md5" dist/
-
-          # The base ISO is no longer needed; free up 6G before splitting volumes
-          rm -f "${BASE_ISO}"
-
           (
             cd dist
-            sha256sum "${ISO_NAME}" > "${ISO_NAME}.sha256"
             # Each volume is 1800M (1.76GiB), well under GitHub Release's 2G per-file limit
             zip -0 -s "${VOLUME_SIZE}" "${ISO_NAME}.zip" "${ISO_NAME}"
             rm -f "${ISO_NAME}"
-            sha256sum "${ISO_NAME}".z* "${ISO_NAME}.zip" > SHA256SUMS
+
+            # Spell out both patterns: a "${ISO_NAME}.z*" glob also matches the
+            # ".zip" volume, which used to add the same checksum twice.
+            sha256sum "${ISO_NAME}".z0* "${ISO_NAME}.zip" > SHA256SUMS
+            cat SHA256SUMS
           )
 
           ls -lh dist

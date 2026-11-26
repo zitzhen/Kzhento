@@ -86,6 +86,12 @@ jobs:
       - name: Preflight smoke tests
         run: bash tests/preflight.test.sh
 
+      - name: Workflow meta resolution tests
+        # Guards the per-job version resolution that lets a failed release run
+        # be retried on its own: a retried job gets no outputs from the jobs
+        # that already succeeded.
+        run: bash tests/resolve-meta.test.sh
+
       - name: Login shell tests
         run: bash tests/terminal.test.sh
 
