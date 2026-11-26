@@ -43,6 +43,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 
 - **品牌重塑** —— `/etc/os-release` 與 GRUB 開機選單是 Kzhento 的品牌入口（目前仍沿用繼承而來的 ZhenTo 字樣）。
 - **內建 Logo** —— 建置時從 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下載 Kzhento Logo（固定 commit + SHA256 檢查），安裝至 `/usr/share/backgrounds/kzhento/`， repository 中不再存放二進位圖片。
+- **歡迎中心** —— 不只換掉開啟視窗的通知（`kubuntu-notification-helper` 語言包），也換掉視窗內容：`plasma-welcome` 的 `extra-pages/01-Kubuntu.qml` 把 Kubuntu 標題、內文與兩張圖都寫死在 QML 裡，上游對未翻譯的來源語言沒有語言包可覆寫，因此由 `edit-notification/edit-welcome.sh` 原地取代該頁，原版保留為 `.zhento-orig`。
 - **發行版圖示** —— `start-here-kde` 換成 Kzhento 圓環「Kz」標記：它是「關於此系統」頁面顯示的 Logo（該頁只接受圖示*名稱*，由 `QIcon::fromTheme()` 解析），也是 Plasma 應用程式啟動器所用的圖示名。由 `edit-logo.sh/edit-icons.sh` 為 Breeze、Breeze Dark 與 hicolor 的每個尺寸目錄寫入 PNG，並移除原本的 KDE SVG（保留為 `.zhento-orig`）。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
@@ -65,6 +66,11 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 │   └── edit.sh               # 將檔案寫入 /etc/os-release
 ├── edit-terminal/
 │   └── edit-terminal.sh      # 將所有既有帳號切換為 zsh 並安裝 Kzhento 的 .zshrc
+├── edit-notification/
+│   ├── po/                   # kubuntu-notification-helper 的 Kzhento 語言包（en、zh_CN）
+│   ├── plasma-welcome/       # K-Zhento 的歡迎中心首頁
+│   ├── edit-notification.sh  # 安裝語言包並重新命名啟動項
+│   └── edit-welcome.sh       # 取代 plasma-welcome 首頁
 ├── edit-logo.sh/
 │   ├── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
 │   ├── edit-pixmaps.sh       # 以 Kzhento 字標取代 /usr/share/pixmaps/ubuntu-logo-text-dark.png

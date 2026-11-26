@@ -71,13 +71,15 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 │   ├── edit-pixmaps.sh       # Replace /usr/share/pixmaps/ubuntu-logo-text-dark.png with the wordmark
 │   └── edit-icons.sh         # Replace the start-here-kde icon (About page + launcher)
 ├── edit-plymouth/
-│   ├── render.py             # Render the logo into boot-splash artwork + the icon master
+│   ├── render.py             # Render the logo into boot artwork, icon master and wordmark
 │   ├── plymouth/minimal.plymouth # The Kzhento boot theme (two-step module)
 │   ├── edit-plymouth.sh      # Install the theme and the artwork into a target root
 │   └── select-theme.sh       # Select the theme and rebuild the initramfs (needs root)
 ├── edit-notification/
 │   ├── po/                   # Kzhento catalogues for kubuntu-notification-helper (en, zh_CN)
-│   └── edit-notification.sh  # Install the catalogues and rename the launcher entry
+│   ├── plasma-welcome/       # K-Zhento's first Welcome Center page
+│   ├── edit-notification.sh  # Install the catalogues and rename the launcher entry
+│   └── edit-welcome.sh       # Replace plasma-welcome's first page
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # Write SHELL=/bin/zsh into /etc/default/useradd (new accounts)
 │   ├── useradd               # Kzhento /etc/default/useradd
@@ -151,7 +153,7 @@ Both scripts also run against a real system or an unpacked root: `sudo ./edit-te
 
 ### Branding
 
-Kubuntu's own artwork is replaced on five surfaces, each by a step that `build.sh` runs inside the unpacked layer:
+Kubuntu's own artwork is replaced on six surfaces, each by a step that `build.sh` runs inside the unpacked layer:
 
 | Surface | Controlled by | Step |
 |---|---|---|
@@ -159,14 +161,17 @@ Kubuntu's own artwork is replaced on five surfaces, each by a step that `build.s
 | Distro wordmark in `/usr/share/pixmaps` | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
 | Distro icon (`start-here-kde`) | the icon themes' `places/*/start-here-kde.*` | `edit-logo.sh/edit-icons.sh` |
 | Welcome Center notification | `kubuntu-notification-helper.mo` catalogues | `edit-notification/edit-notification.sh` |
+| Welcome Center first page | `plasma-welcome/extra-pages/01-Kubuntu.qml` | `edit-notification/edit-welcome.sh` |
 | "About this System" page | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
 
-The splash artwork is generated from the logo rather than shipped as a static file, so it stays in sync with the brand: `edit-plymouth/render.py` produces a white-on-transparent watermark (the full logo, at the bottom of the boot screen), a 48×48 spinner frame and a 512×512 icon master, both cut from the same ringed "Kz". The spinner is recoloured for the black boot screen (charcoal ink to white, blue accents kept); the icon master keeps the logo's own colours, because it is drawn on the light and dark desktop. `tests/render.test.sh` checks all three.
+The splash artwork is generated from the logo rather than shipped as a static file, so it stays in sync with the brand: `edit-plymouth/render.py` produces a white-on-transparent watermark (the full logo, at the bottom of the boot screen), a 48×48 spinner frame and a 512×512 icon master, the last two cut from the same ringed "Kz", plus a 1024×309 wordmark for the Welcome Center page. The spinner and the watermark are recoloured for the black boot screen (charcoal ink to white, blue accents kept); the icon master and the wordmark keep the logo's own colours, because they are drawn on the light desktop. `tests/render.test.sh` checks all four.
 
 The "About this System" page does **not** take an image path: `kcm_about-distro` hands `LogoPath` to `QIcon::fromTheme()`, which only resolves icon *names*. So the logo on that page is the `start-here-kde` icon, and `edit-logo.sh/edit-icons.sh` is what puts Kzhento there. It writes a PNG into every size directory of the Breeze, Breeze Dark and hicolor themes (16 px up to 512 px, HiDPI variants included) and moves the stock KDE SVG aside as `start-here-kde.svg.zhento-orig` — the SVG is removed rather than shadowed, so a loader with a different preference cannot fall back to it. The same icon name is what Plasma uses for the application launcher, so the launcher is branded by the same step, and `tests/edit-icons.test.sh` covers it.
 
 Details worth knowing when changing this:
 
+- The Welcome Center window is two separate surfaces. `kubuntu-notification-helper` only supplies the *notification* that opens it, and its strings come from a gettext catalogue this repository overrides. The window's *content* is `plasma-welcome`'s `extra-pages/01-Kubuntu.qml`, where the heading, the body and both images are written into the QML itself — and upstream ships no `plasma-welcome` catalogue for the untranslated source language, so there is no msgid to override. Branding the notification alone leaves a window titled K-Zhento containing Kubuntu's tour, which is exactly what the 0.1.0 build shipped. `edit-welcome.sh` replaces that page in place and keeps the stock one as `.zhento-orig`; the replacement draws the wordmark rendered by `render.py` and drops the Donate badge rather than repointing it at a campaign that does not exist.
+- The page is replaced at its **stock file name**, not added under a new one: plasma-welcome enumerates `extra-pages/*.qml`, so a second file would appear as an extra page in the tour. The `.zhento-orig` backup is deliberately not a `.qml` file, which is why it is invisible to that enumeration.
 - Breeze's `places/@2x` and `@3x` directories are **symlinks to the plain one** on a stock Kubuntu, so several icon names resolve to a single directory. `edit-icons.sh` collapses them by real path and keeps the largest size asked for; writing each name in turn left a 48 px image in the directory the theme reads for 16 px icons.
 - `watermark.png` in the stock `spinner` theme is a **dpkg symlink** to `/usr/share/pixmaps/ubuntu-logo-text-dark.png`. `edit-plymouth.sh` replaces it with a regular file, so the boot screen no longer depends on that pixmap, and `edit-pixmaps.sh` keeps the upstream file as `.zhento-orig`.
 - The Kzhento theme uses the `two-step` module, so it draws `animation-*.png` from its own `ImageDir`; the stock `spinner` theme's `throbber-*.png` frames are that theme's script assets and are deliberately **not** copied over. `edit-plymouth.sh` installs the rendered mark as `animation-0001.png`, and `tests/plymouth-payload.test.sh` keeps the theme file and the installer in agreement.
