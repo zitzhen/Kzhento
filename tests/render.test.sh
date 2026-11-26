@@ -24,8 +24,8 @@
 #   - the throbber and the icon master are the same ringed mark, centred and
 #     square, with no stray speck from the underline
 #   - the watermark is the full logo, in the boot screen's colours; the icon
-#     master keeps the logo's own colours, because it is drawn on the desktop
-#     rather than on the black boot screen
+#     master and the Welcome Center logo keep the logo's own colours, because
+#     they are drawn on the light desktop rather than on the black boot screen
 #   - the source logo is never modified
 
 set -euo pipefail
@@ -75,7 +75,8 @@ ok "render.py runs"
 [ -f "$TMP/watermark.png" ] || die "render.py did not write watermark.png"
 [ -f "$TMP/throbber.png" ] || die "render.py did not write throbber.png"
 [ -f "$TMP/mark.png" ] || die "render.py did not write mark.png"
-ok "all three assets written"
+[ -f "$TMP/logo.png" ] || die "render.py did not write logo.png"
+ok "all four assets written"
 
 after=$(sha256sum "$LOGO_DIR/kzhento_transparent.png" | cut -d' ' -f1)
 [ "$before" = "$after" ] || die "render.py modified its input logo"
@@ -92,6 +93,7 @@ out = Path(sys.argv[1])
 watermark = Image.open(out / "watermark.png").convert("RGBA")
 throbber = Image.open(out / "throbber.png").convert("RGBA")
 mark = Image.open(out / "mark.png").convert("RGBA")
+logo = Image.open(out / "logo.png").convert("RGBA")
 
 fail = []
 
@@ -217,12 +219,45 @@ check(mean[2] > 245 and mean[0] < 45,
 check(mean[1] < 200 and mean[2] > mean[1] > mean[0],
       f"icon master's ink is not a blue: {tuple(round(v) for v in mean)}")
 
+# --- Welcome Center logo: the whole artwork, in its own colours ---
+#
+# The page draws it on the same light background as the About page, so it must
+# not be the boot screen's white-on-transparent repaint, and it has to be wide
+# (the page fits it into a short header band).
+check(logo.size == (1024, 309),
+      f"welcome logo is {logo.size}, expected (1024, 309)")
+
+# The tell is the wordmark, not a mean over the whole drawing: on the boot screen
+# the charcoal wordmark is repainted white, so the neutral (grey) part of this
+# asset has to be *dark* - a mean over everything would be pulled towards the
+# blue by the ring and say nothing.
+lpx = logo.load()
+blue = neutral = 0
+neutral_sum = 0
+for y in range(0, logo.height, 2):
+    for x in range(0, logo.width, 2):
+        r, g, b, a = lpx[x, y]
+        if a < 200:
+            continue
+        if b > r + 40:
+            blue += 1
+        elif max(r, g, b) - min(r, g, b) < 25:
+            neutral += 1
+            neutral_sum += (r + g + b) / 3
+check(blue > 1000, f"welcome logo has almost no blue ink ({blue} samples)")
+check(neutral > 1000, f"welcome logo has no wordmark ink ({neutral} samples)")
+neutral_mean = neutral_sum / neutral
+check(neutral_mean < 130,
+      f"welcome logo's wordmark is {neutral_mean:.0f}/255 on average: it was "
+      f"repainted white for the boot screen instead of keeping the charcoal ink")
+
 if fail:
     for message in fail:
         print(f"XX  {message}", file=sys.stderr)
     sys.exit(1)
 print(f"ok  watermark 512x154, throbber ink {len(ink)} px, mark {width}x{height}, "
-      f"icon master {mw}x{mh}, mean ink {tuple(round(v) for v in mean)}")
+      f"icon master {mw}x{mh}, welcome logo {logo.size} "
+      f"(wordmark {neutral_mean:.0f}/255)")
 PY
 
 ok "artwork shape, colours and centring"

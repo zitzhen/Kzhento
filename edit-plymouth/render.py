@@ -13,6 +13,9 @@
 #                         colours, the master the desktop icons are scaled from
 #                         (edit-logo.sh/edit-icons.sh installs it as
 #                         start-here-kde, the App icon of the About page)
+#   <out>/logo.png        the whole logo, cropped and in its own colours, for the
+#                         light UI of the Welcome Center page (the watermark is
+#                         the same drawing painted for the black boot screen)
 #
 # Usage: render.py <logo dir> <output dir>
 #
@@ -29,6 +32,10 @@ from pathlib import Path
 from PIL import Image
 
 WATERMARK_WIDTH = 512
+# The Welcome Center draws the logo on the same light background as the About
+# page, so it needs the artwork in its own colours, at a width that survives a
+# HiDPI screen without being bigger than the page's header band.
+LOGO_WIDTH = 1024
 THROBBER_SIZE = 48
 # The desktop icon master: large enough for the biggest size the icon themes
 # ask for, and a power of two so every smaller size is a clean downscale.
@@ -273,9 +280,13 @@ def main():
     if bbox is None:
         sys.exit(f"XX  logo has no visible ink: {source}")
 
-    # Watermark: the full logo, scaled to a fixed width.
+    # Watermark: the full logo, scaled to a fixed width. The boot screen is
+    # black, so the ink is repainted; logo.png is the same drawing in the
+    # artwork's own colours, for the light Welcome Center page.
     mark = fit(coloured.crop(bbox), WATERMARK_WIDTH)
     mark.save(out_dir / "watermark.png")
+    logo = fit(repaint(mask, original).crop(bbox), LOGO_WIDTH)
+    logo.save(out_dir / "logo.png")
 
     # Spinner frame and desktop icon master: the same ringed mark, cut the same
     # way, but painted for where it is shown. The boot screen is black, so the
@@ -288,6 +299,7 @@ def main():
 
     print(
         f"==> watermark.png {mark.width}x{mark.height}, "
+        f"logo.png {logo.width}x{logo.height}, "
         f"throbber.png {THROBBER_SIZE}x{THROBBER_SIZE}, "
         f"mark.png {ICON_SIZE}x{ICON_SIZE}"
     )

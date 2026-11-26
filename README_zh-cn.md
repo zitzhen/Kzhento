@@ -71,13 +71,15 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   ├── edit-pixmaps.sh       # 用 Kzhento 字标替换 /usr/share/pixmaps/ubuntu-logo-text-dark.png
 │   └── edit-icons.sh         # 替换 start-here-kde 图标（「关于本系统」与启动器）
 ├── edit-plymouth/
-│   ├── render.py             # 由 Logo 渲染开机画面素材与图标母版
+│   ├── render.py             # 由 Logo 渲染开机素材、图标母版与字标
 │   ├── plymouth/minimal.plymouth # Kzhento 开机主题（two-step 模块）
 │   ├── edit-plymouth.sh      # 将主题与素材安装到目标根目录
 │   └── select-theme.sh       # 选定主题并重建 initramfs（需 root）
 ├── edit-notification/
 │   ├── po/                   # kubuntu-notification-helper 的 Kzhento 语言包（en、zh_CN）
-│   └── edit-notification.sh  # 安装语言包并重命名启动项
+│   ├── plasma-welcome/       # K-Zhento 的欢迎中心首页
+│   ├── edit-notification.sh  # 安装语言包并重命名启动项
+│   └── edit-welcome.sh       # 替换 plasma-welcome 首页
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # 向 /etc/default/useradd 写入 SHELL=/bin/zsh（新建账户）
 │   ├── useradd               # Kzhento 的 /etc/default/useradd
@@ -151,7 +153,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 ### 品牌替换
 
-Kubuntu 自带的视觉元素在五个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
+Kubuntu 自带的视觉元素在六个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
 
 | 位置 | 由什么控制 | 对应步骤 |
 |---|---|---|
@@ -159,14 +161,17 @@ Kubuntu 自带的视觉元素在五个位置被替换，每个位置对应 `buil
 | `/usr/share/pixmaps` 里的发行版字标 | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
 | 发行版图标（`start-here-kde`） | 各图标主题的 `places/*/start-here-kde.*` | `edit-logo.sh/edit-icons.sh` |
 | 欢迎中心通知 | `kubuntu-notification-helper.mo` 语言包 | `edit-notification/edit-notification.sh` |
+| 欢迎中心首页 | `plasma-welcome/extra-pages/01-Kubuntu.qml` | `edit-notification/edit-welcome.sh` |
 | 「关于本系统」页面 | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
 
-开机画面素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）、48×48 的转圈帧与 512×512 的图标母版，后两者取自同一块带圆环的「Kz」。转圈帧按黑底重新着色（炭灰墨迹改白、保留蓝色点缀），图标母版保留 Logo 自身的颜色，因为它要显示在浅色与深色桌面上。`tests/render.test.sh` 校验这三种输出。
+开机素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）、48×48 的转圈帧与 512×512 的图标母版（后两者取自同一块带圆环的「Kz」），以及 1024×309 的欢迎中心字标。水印与转圈帧按黑底重新着色（炭灰墨迹改白、保留蓝色点缀），图标母版与字标保留 Logo 自身的颜色，因为它们显示在浅色桌面上。`tests/render.test.sh` 校验这四种输出。
 
 「关于本系统」页面**不接受图片路径**：`kcm_about-distro` 把 `LogoPath` 交给 `QIcon::fromTheme()`，而它只解析图标*名称*。所以该页面的 Logo 就是这个 `start-here-kde` 图标，把它换成 Kzhento 的是 `edit-logo.sh/edit-icons.sh`。该脚本为 Breeze、Breeze Dark 与 hicolor 的每个尺寸目录（16 px 到 512 px，含 HiDPI 变体）写入 PNG，并把系统自带的 KDE SVG 保留为 `start-here-kde.svg.zhento-orig` 后**删除**——只遮挡不删除的话，偏好 SVG 的加载器仍会退回原图。Plasma 的应用启动器用的正是同一个图标名，因此启动器也由这一步一并换掉，`tests/edit-icons.test.sh` 覆盖了它。
 
 改动这部分时需要注意：
 
+- 欢迎中心是**两个独立的表面**。`kubuntu-notification-helper` 只负责弹出打开它的*通知*，其文案来自本仓库覆盖的 gettext 语言包；窗口的*内容*则是 `plasma-welcome` 的 `extra-pages/01-Kubuntu.qml`，标题、正文与两张图片都写死在 QML 里，而且上游对未翻译的源语言**没有** `plasma-welcome` 语言包，根本没有 msgid 可覆盖。只改通知的结果就是一个标题为 K-Zhento、内容却是 Kubuntu 导览的窗口——0.1.0 镜像正是如此。`edit-welcome.sh` 原地替换该页面并把原版留为 `.zhento-orig`；新页面用 `render.py` 渲染的字标，并去掉了 Donate 徽章（没有对应的 K-Zhento 募捐活动，指向别处会更糟）。
+- 页面是**按原文件名原地替换**，而不是新增一个：plasma-welcome 会枚举 `extra-pages/*.qml`，多一个文件就会在导览里多出一页。`.zhento-orig` 备份刻意不是 `.qml`，因此不会被枚举。
 - 系统自带的 Breeze 里，`places/@2x` 与 `@3x` 目录是**指向普通目录的符号链接**，因此多个图标名会解析到同一个目录。`edit-icons.sh` 按真实路径去重并取其中最大的尺寸；若逐个名字写入，最终会在主题按 16 px 读取的目录里留下 48 px 的图。
 - 系统自带 `spinner` 主题里的 `watermark.png` 是 **dpkg 符号链接**，指向 `/usr/share/pixmaps/ubuntu-logo-text-dark.png`。`edit-plymouth.sh` 会把它换成普通文件，使开机画面不再依赖那张 pixmap；`edit-pixmaps.sh` 则把上游文件保留为 `.zhento-orig`。
 - Kzhento 主题使用 `two-step` 模块，绘制的是自己 `ImageDir` 里的 `animation-*.png`；系统自带 `spinner` 主题的 `throbber-*.png` 是该主题脚本的素材，**不会**被复制过来。`edit-plymouth.sh` 把渲染出的图标安装为 `animation-0001.png`，`tests/plymouth-payload.test.sh` 负责保证主题文件与安装脚本一致。

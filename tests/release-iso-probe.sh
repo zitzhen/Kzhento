@@ -203,6 +203,15 @@ for lang in en zh_CN; do
     fi
 done
 
+# The Welcome Center's first page is QML with the vendor text written into it;
+# the notification catalogue above does not cover it.
+welcome_page=usr/share/plasma/plasma-welcome/extra-pages/01-Kubuntu.qml
+if image "/$welcome_page" 2>/dev/null | grep -q 'Welcome to K-Zhento'; then
+    branded "welcome center page is K-Zhento"
+else
+    stock "welcome center page is not K-Zhento (or plasma-welcome is absent)"
+fi
+
 about=$(image /etc/xdg/kcm-about-distrorc || true)
 if printf '%s\n' "$about" | grep -qx 'Name=K-Zhento'; then
     branded "about page name is K-Zhento"

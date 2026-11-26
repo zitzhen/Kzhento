@@ -106,6 +106,7 @@ preflight_checks() {
         edit-plymouth/render.py edit-plymouth/plymouth/minimal.plymouth \
         edit-logo.sh/edit-pixmaps.sh edit-logo.sh/edit-icons.sh \
         edit-notification/edit-notification.sh \
+        edit-notification/edit-welcome.sh edit-notification/plasma-welcome/01-Kzhento.qml \
         edit-os-release/edit-about-system.sh edit-os-release/kcm-about-distrorc; do
         if [ ! -f "$SELF_DIR/$d" ]; then
             warn "Branding input missing, its step will be skipped: $d"
@@ -681,6 +682,28 @@ apply_notification() {
 }
 
 # ---------------------------------------------------------------------------
+# Welcome Center page: the first-login tour's own first page. The notification
+# above is what opens the window; this is the window's content, which is QML with
+# the Kubuntu text and artwork written into it and no catalogue to override.
+# ---------------------------------------------------------------------------
+apply_welcome_page() {
+    local script="$SELF_DIR/edit-notification/edit-welcome.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-notification/edit-welcome.sh is missing, skipping the Welcome Center page"
+        return 0
+    }
+    [ -d "$ROOT_DIR/usr/share/plasma/plasma-welcome/extra-pages" ] || {
+        warn "plasma-welcome is not installed in the image, skipping the Welcome Center page"
+        return 0
+    }
+
+    log "Installing the K-Zhento Welcome Center page"
+    LOGO_DIR="$SELF_DIR/logo" sh "$script" "$ROOT_DIR" ||
+        die "Failed to install the Welcome Center page"
+}
+
+# ---------------------------------------------------------------------------
 # About this System: kcm-about-distrorc for kcm_about-distro
 # ---------------------------------------------------------------------------
 apply_about_system() {
@@ -806,6 +829,7 @@ patch_layer() {
     apply_icons
     apply_plymouth
     apply_notification
+    apply_welcome_page
     apply_useradd_defaults
     apply_terminal
 
