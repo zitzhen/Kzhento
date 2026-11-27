@@ -1,4 +1,4 @@
-name: Maintenance task (English)
+name: Maintenance task
 description: Track CI, documentation, dependency, refactoring, or other chore work
 title: "chore: "
 body:

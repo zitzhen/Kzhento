@@ -1,6 +1,6 @@
-name: Bug report (English)
+name: Bug report
 description: Report a problem with the build, installation, boot process, or runtime
-title: "fix: "
+title: "bug: "
 body:
   - type: markdown
     attributes:
