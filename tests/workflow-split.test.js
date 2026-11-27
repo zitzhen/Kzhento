@@ -76,9 +76,17 @@ test('release depends on build and re-checks the shipped image', () => {
 test('release does not rebuild the image', () => {
   const release = jobBlock('release');
   assert.doesNotMatch(release, /\.\/build\.sh/);
-  // The release job only shuffles ~11G, so it must not pay for the three
-  // minute disk-cleanup action the build job needs.
-  assert.doesNotMatch(release, /uses: jlumbroso\/free-disk-space@/);
+});
+
+test('no job pays for a disk-cleanup step', () => {
+  // free-disk-space reclaimed 33G in 4 minutes on 2026-11-27, but the runner
+  // starts with ~85G free and the build peaks around 35G: the space was never
+  // needed. Both jobs now just assert the threshold and fail fast instead.
+  assert.doesNotMatch(text, /uses: jlumbroso\/free-disk-space@/);
+
+  for (const job of ['build', 'release']) {
+    assert.match(jobBlock(job), /Check available disk space/, `${job} has no disk check`);
+  }
 });
 
 test('build hands the ISO over as an uncompressed artifact', () => {

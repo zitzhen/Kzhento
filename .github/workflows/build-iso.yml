@@ -22,8 +22,10 @@ name: Build ISO
 # retried job does not receive them, so each job resolves them itself with
 # scripts/resolve-meta.sh.
 #
-# Disk: GitHub-hosted runners have ~86G free, the build job peaks around 23G,
-# the release job around 15G.
+# Disk: GitHub-hosted runners start with ~85G free. The build job peaks around
+# 35G (ISO tree ~5G + unpacked rootfs ~20G + new squashfs ~5G + output ISO 5G)
+# and the release job around 15G, so neither needs a disk-cleanup step - the
+# one that used to run here reclaimed 33G the build never touched, in 4 minutes.
 
 on:
   workflow_dispatch:
@@ -80,25 +82,14 @@ jobs:
           INPUT_BASE_SHA: ${{ inputs.base_iso_sha256 }}
         run: ./scripts/resolve-meta.sh
 
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          preinstalled-runtimes: true
-          swap-storage: false
-
       - name: Check available disk space
         run: |
           set -e
           df -h
           avail_gb=$(df -Pk . | awk 'NR==2{print int($4/1024/1024)}')
           echo "Available space: ${avail_gb}G"
-          if [ "$avail_gb" -lt 25 ]; then
-            echo "XX Not enough disk space (needs >= 25G, peak usage is ~23G)" >&2
+          if [ "$avail_gb" -lt 45 ]; then
+            echo "XX Not enough disk space (needs >= 45G, peak usage is ~35G)" >&2
             exit 1
           fi
 
