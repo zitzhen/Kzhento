@@ -1,8 +1,13 @@
+# shellcheck shell=sh
 # Copyright (C) 2026 ZIT STUDIO
 # Author: Oliver Lin <oliver@liuxiaozhen.dev>
 # SPDX-License-Identifier: AGPL-3.0-only
 #
 # Shared download helper for install-app/*.sh. Sourced, not executed.
+#
+# The `shellcheck shell=sh` directive above stands in for a shebang: this file
+# is sourced, never run, so it has no interpreter line of its own. Without the
+# directive shellcheck cannot tell which dialect to check it against (SC2148).
 #
 # It lives in install-app/lib/ on purpose: build.sh runs every install-app/*.sh
 # as an install script, so a helper placed directly in install-app/ would be
