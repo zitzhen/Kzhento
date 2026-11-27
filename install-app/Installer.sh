@@ -15,14 +15,18 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # Dependent projects
 sh "$SCRIPT_DIR/curl.sh"
 
+# Downloads are retried: this runs inside a long build, where a transient CDN
+# failure should not throw the whole image away.
+. "$SCRIPT_DIR/lib/zhento-fetch.sh"
+
 VERSION="1.0.0"
 SNAP_FILE="ubuntu-desktop-bootstrap_${VERSION}-1-g21e8ae6a1_amd64.snap"
 BASE_URL="https://github.com/zitzhen/zhento-desktop-install/releases/download/v${VERSION}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-curl -fL -o "$WORK_DIR/$SNAP_FILE" "$BASE_URL/$SNAP_FILE"
-curl -fL -o "$WORK_DIR/$SNAP_FILE.sha256" "$BASE_URL/$SNAP_FILE.sha256"
+zhento_fetch "$BASE_URL/$SNAP_FILE" "$WORK_DIR/$SNAP_FILE"
+zhento_fetch "$BASE_URL/$SNAP_FILE.sha256" "$WORK_DIR/$SNAP_FILE.sha256"
 
 (cd "$WORK_DIR" && sha256sum -c "$SNAP_FILE.sha256")
 

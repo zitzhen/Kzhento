@@ -15,6 +15,10 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # Dependent projects
 sh "$SCRIPT_DIR/curl.sh"
 
+# Downloads are retried: this runs inside a long build, where a transient CDN
+# failure should not throw the whole image away.
+. "$SCRIPT_DIR/lib/zhento-fetch.sh"
+
 export DEBIAN_FRONTEND=noninteractive
 
 # Install a fixed published release artifact only: no source checkout, no build,
@@ -27,8 +31,8 @@ CHECKSUMS="SHA256SUMS"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-curl -fL -o "$WORK_DIR/$DEB_FILE" "$BASE_URL/$DEB_FILE"
-curl -fL -o "$WORK_DIR/$CHECKSUMS" "$BASE_URL/$CHECKSUMS"
+zhento_fetch "$BASE_URL/$DEB_FILE" "$WORK_DIR/$DEB_FILE"
+zhento_fetch "$BASE_URL/$CHECKSUMS" "$WORK_DIR/$CHECKSUMS"
 
 # Only verify the line for our artifact; extra entries in SHA256SUMS are not
 # downloaded and must not make this check fail.

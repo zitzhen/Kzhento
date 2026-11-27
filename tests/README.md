@@ -7,6 +7,7 @@
 | PR 快检 / 单测 | `auto-label.test.js`、`workflow-split.test.js`、`check-version-consistency.sh` | `node --test tests/*.test.js`、`bash tests/check-version-consistency.sh` | Node.js 22+；无 root、无网络 | 是 |
 | 构建前预检 | `preflight.test.sh` | `bash tests/preflight.test.sh` | bash；无 root、无网络（外部命令用 fake bin mock） | 是 |
 | 工作流版本解析 | `resolve-meta.test.sh` | `bash tests/resolve-meta.test.sh` | bash；无 root、无网络（纯环境变量输入） | 是 |
+| 下载重试 | `zhento-fetch.test.sh` | `bash tests/zhento-fetch.test.sh` | bash；无 root、无网络（curl 被桩替换） | 是 |
 | 登录终端 | `terminal.test.sh` | `bash tests/terminal.test.sh` | bash、python3；无 root、无网络（`id` 被 mock，目标均为临时目录） | 是 |
 | 素材渲染 | `render.test.sh` | `bash tests/render.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无 root、无网络 | 是 |
 | 发行版图标安装 | `edit-icons.test.sh` | `bash tests/edit-icons.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无 root、无网络（`id` 被 mock，目标均为临时目录） | 是 |
@@ -25,6 +26,7 @@ node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/resolve-meta.test.sh
+bash tests/zhento-fetch.test.sh
 bash tests/terminal.test.sh
 bash tests/plymouth-payload.test.sh
 bash tests/casper-boot-sync.test.sh
