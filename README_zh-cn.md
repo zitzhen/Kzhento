@@ -242,7 +242,7 @@ bash tests/edit-icons.test.sh
 |---|---|---|
 | `pr-check.yml` | 每次 Pull Request | 语法检查、单元测试、版本一致性、shellcheck、actionlint、gitleaks、非 root 预检 |
 | `dco.yml` | push 和 PR | 强制 `Signed-off-by` 签署（开发者来源认证 DCO） |
-| `build-iso.yml` | `v*` tag 或手动触发 | 预检 → 构建 → 验证 → 拆分 → 发布草稿 |
+| `build-iso.yml` | `v*` tag 或手动触发 | 预检 → 构建 → 上传 ISO 产物，再验证 → 拆分 → 发布草稿（`build` 与 `release` 是两个 job，上传失败可只重跑发布而不重建镜像） |
 | `vm-smoke.yml` | `v*` tag 或手动触发 | 参考性 QEMU + OVMF 启动检查（`continue-on-error`） |
 | `auto-label.yml` | PR 活动 | 自动添加标签 |
 

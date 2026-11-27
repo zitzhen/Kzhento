@@ -140,3 +140,25 @@ done <"$WORKDIR/assets.tsv"
 echo ""
 echo "Done: $SUCCESS/$TOTAL -> $OUTDIR"
 [ "$SUCCESS" -eq "$TOTAL" ] || exit 1
+
+# 7. Verify the volumes against the SHA256SUMS published alongside them. The
+#    size check above only proves the transfer carried the advertised number of
+#    bytes, not that they are the right ones.
+if [ -f "$OUTDIR/SHA256SUMS" ]; then
+    echo ""
+    echo "Verifying SHA256SUMS ..."
+    if (cd "$OUTDIR" && sha256sum -c --quiet SHA256SUMS); then
+        echo "OK: all volumes match SHA256SUMS"
+    else
+        fail "Checksum verification failed in $OUTDIR; download the release again"
+    fi
+
+    # The full-ISO checksum is what a written USB drive should be compared
+    # against, so point at it rather than re-hashing 5G here.
+    echo "After joining the volumes, check the ISO with:"
+    for f in "$OUTDIR"/zhenTo-*.iso.sha256; do
+        [ -f "$f" ] && echo "  (cd $OUTDIR && sha256sum -c $(basename "$f"))"
+    done
+else
+    echo "!!  No SHA256SUMS in the release; volumes are unverified" >&2
+fi

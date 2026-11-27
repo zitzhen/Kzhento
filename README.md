@@ -254,7 +254,7 @@ See [tests/README.md](tests/README.md) for details and safety notes.
 |---|---|---|
 | `pr-check.yml` | Every pull request | Syntax checks, unit tests, version consistency, shellcheck, actionlint, gitleaks, non-root preflight |
 | `dco.yml` | Pushes and PRs | Enforces `Signed-off-by` trailers (Developer Certificate of Origin) |
-| `build-iso.yml` | `v*` tag or manual dispatch | Preflight → build → verify → split → publish a draft release |
+| `build-iso.yml` | `v*` tag or manual dispatch | Preflight → build → upload ISO artifact, then verify → split → publish a draft release (`build` and `release` are separate jobs, so a failed upload can be retried without rebuilding) |
 | `vm-smoke.yml` | `v*` tag or manual dispatch | Advisory QEMU + OVMF boot check (`continue-on-error`) |
 | `auto-label.yml` | PR activity | Automatic labeling |
 

@@ -205,7 +205,7 @@ bash tests/terminal.test.sh
 |---|---|---|
 | `pr-check.yml` | 每次 Pull Request | 語法檢查、單元測試、版本一致性、shellcheck、actionlint、gitleaks、非 root 預檢 |
 | `dco.yml` | push 與 PR | 強制 `Signed-off-by` 簽署（開發者來源認證 DCO） |
-| `build-iso.yml` | `v*` 標籤或手動觸發 | 預檢 → 建置 → 驗證 → 分割 → 發佈草稿 |
+| `build-iso.yml` | `v*` 標籤或手動觸發 | 預檢 → 建置 → 上傳 ISO 產物，再驗證 → 分割 → 發佈草稿（`build` 與 `release` 是兩個 job，上傳失敗可只重跑發佈而不重建鏡像） |
 | `vm-smoke.yml` | `v*` 標籤或手動觸發 | 參考性 QEMU + OVMF 開機檢查（`continue-on-error`） |
 | `auto-label.yml` | PR 活動 | 自動新增標籤 |
 
