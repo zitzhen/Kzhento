@@ -1,37 +1,37 @@
-name: Bug 报告
-description: 报告构建、安装、引导或运行中遇到的问题
+name: Bug report (English)
+description: Report a problem with the build, installation, boot process, or runtime
 title: "fix: "
 body:
   - type: markdown
     attributes:
       value: |
-        感谢提交 Bug 报告！请尽量填写完整信息，方便复现与定位。
+        Thanks for filing a bug report! Please fill in as much detail as possible so we can reproduce and locate the issue.
 
-        > 标题已预填 `fix:` 前缀，请保留——自动打标脚本会据此加上 `bug` 标签。
-        > 提交前请先搜索已有 issue，避免重复。
+        > The title is pre-filled with `fix:` — please keep it, so the auto-label script applies the `bug` label.
+        > Please search the existing issues first to avoid duplicates.
 
   - type: dropdown
     id: component
     attributes:
-      label: 受影响的组件
-      description: 选择最接近的模块；不确定可选「其他 / 不确定」并在下方说明
+      label: Affected component
+      description: Pick the closest module; if unsure, choose "Other / not sure" and explain below
       options:
-        - ISO 构建 / build.sh
-        - 预装应用 / install-app
-        - 引导配置 / edit-grub
-        - 系统信息 / edit-os-release
-        - 工具脚本 / scripts
+        - ISO build / build.sh
+        - Preinstalled apps / install-app
+        - Boot configuration / edit-grub
+        - System info / edit-os-release
+        - Utility scripts / scripts
         - CI / GitHub Actions
-        - 文档
-        - 其他 / 不确定
+        - Documentation
+        - Other / not sure
     validations:
       required: true
 
   - type: input
     id: version
     attributes:
-      label: zhenTo 版本
-      description: 例如 0.1.1（可查看 build.sh 中的 VERSION 或 os-release 中的 VERSION_ID）
+      label: zhenTo version
+      description: e.g. 0.1.1 (see VERSION in build.sh or VERSION_ID in os-release)
       placeholder: "0.1.1"
     validations:
       required: true
@@ -39,15 +39,15 @@ body:
   - type: input
     id: environment
     attributes:
-      label: 运行环境
-      description: 物理机或虚拟机（VMware / VirtualBox / QEMU 等）、内存、磁盘、宿主系统
-      placeholder: "QEMU 8.2, 4 GB RAM, x86_64, 宿主 Ubuntu 24.04"
+      label: Environment
+      description: Bare metal or VM (VMware / VirtualBox / QEMU etc.), RAM, disk, host OS
+      placeholder: "QEMU 8.2, 4 GB RAM, x86_64, host Ubuntu 24.04"
 
   - type: textarea
     id: reproduce
     attributes:
-      label: 复现步骤
-      description: 请给出可稳定复现的操作或命令
+      label: Steps to reproduce
+      description: Provide steps or commands that reproduce the issue reliably
       placeholder: |
         1. ...
         2. ...
@@ -58,20 +58,20 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: 期望行为
+      label: Expected behavior
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: 实际行为 / 错误信息
-      description: 请粘贴相关报错、失败日志或截图链接（报错、崩溃、异常、无法启动等均可）
+      label: Actual behavior / error output
+      description: Paste the error, failure log, crash output, or a screenshot link (error, crash, exception, fails to boot, etc.)
     validations:
       required: true
 
   - type: textarea
     id: context
     attributes:
-      label: 其他补充
-      description: 已尝试过的排查方法、相关 issue / PR、或任何有帮助的上下文
+      label: Additional context
+      description: What you have already tried, related issues / PRs, or anything else that helps
