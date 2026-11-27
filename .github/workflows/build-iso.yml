@@ -173,19 +173,12 @@ jobs:
             SQUASHFS_COMP="${SQUASHFS_COMP}" \
             SQUASHFS_BLOCK="${SQUASHFS_BLOCK}" \
             ./build.sh
-
-      - name: Generate checksums
-        run: |
-          set -e
-          cd "${RUNNER_TEMP}/out"
-          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
-          # build.sh already wrote the md5. The sha256 is produced here, before
-          # verification, so verify-artifact.sh can actually check it (it looks
-          # for a file that used to be created only after verification) and so
-          # the release job ships the same bytes it verified.
-          sha256sum "${ISO_NAME}" > "${ISO_NAME}.sha256"
-          cat "${ISO_NAME}.sha256"
-          ls -lh
+          # build.sh runs as root and creates OUT_DIR itself, so everything it
+          # leaves behind is root-owned and the runner user cannot add a file
+          # next to the ISO. Hand the tree back before any later step touches
+          # it (the artifact upload also runs as the runner user).
+          sudo chown -R "$(id -u):$(id -g)" "${OUT_DIR}"
+          ls -lh "${OUT_DIR}"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -196,10 +189,7 @@ jobs:
           overwrite: true
           retention-days: 7
           if-no-files-found: error
-          path: |
-            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso
-            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256
-            ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.md5
+          path: ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso
 
   release:
     needs: build
@@ -250,6 +240,16 @@ jobs:
           name: ${{ steps.meta.outputs.artifact }}
           path: dist
 
+      - name: Generate checksums
+        run: |
+          set -e
+          cd dist
+          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+          sha256sum "${ISO_NAME}" >"${ISO_NAME}.sha256"
+          md5sum "${ISO_NAME}" >"zhenTo-${VERSION}-amd64.md5"
+          cat "${ISO_NAME}.sha256" "zhenTo-${VERSION}-amd64.md5"
+          ls -lh
+
       - name: Verify artifact
         run: |
           ls -lh dist
@@ -298,9 +298,17 @@ jobs:
             Download all volumes into the same directory, then run:
 
             ```bash
-            unzip zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip
+            cat zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.z* \
+                zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip > joined.zip
+            unzip -o joined.zip
             sha256sum -c zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256
             ```
+
+            Info-ZIP cannot read a split archive directly: running `unzip` on the
+            `.zip` alone fails with "bad zipfile offset", and it reports a non-zero
+            exit status even after joining the volumes. Both are its own
+            multi-part handling, not a damaged image - the `sha256sum -c` line is
+            the real check, and it must print `OK`.
 
             ## Write to a USB drive
 

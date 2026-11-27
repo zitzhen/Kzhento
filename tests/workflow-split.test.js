@@ -93,12 +93,41 @@ test('build hands the ISO over as an uncompressed artifact', () => {
   assert.match(download, /actions\/download-artifact@[0-9a-f]{40}/);
 });
 
-test('the sha256 verify-artifact.sh checks is written before it runs', () => {
-  // verify-artifact.sh only checks ${ISO}.sha256 when that file exists. It used
-  // to be created in the workflow *after* verification, so the check silently
-  // never ran; the checksum step therefore has to stay in the build job.
-  assert.match(stepBlock('build', 'Generate checksums'), /sha256sum "\$\{ISO_NAME\}" > "\$\{ISO_NAME\}\.sha256"/);
-  assert.doesNotMatch(jobBlock('release'), /sha256sum "\$\{ISO_NAME\}" >/);
+test('checksums are generated in the release job, before verification', () => {
+  // Two separate bugs live here.
+  //
+  // 1. Ordering: verify-artifact.sh only checks ${ISO}.sha256 when that file
+  //    exists, so a checksum written after verification silently disables the
+  //    check (every run logged "skipping external checksum").
+  //
+  // 2. Ownership: build.sh runs under sudo and creates OUT_DIR itself, so the
+  //    directory is root-owned. Generating the checksum in the build job as the
+  //    runner user failed with "Permission denied" on 2026-11-27, after a
+  //    16-minute build, and the ISO was thrown away. The artifact therefore
+  //    carries the ISO alone and the release job - which owns everything it
+  //    writes into dist/ - computes both checksums next to it.
+  assert.doesNotMatch(jobBlock('build'), /name: Generate checksums/);
+  assert.doesNotMatch(stepBlock('build', 'Upload ISO artifact'), /\.sha256/);
+
+  const release = jobBlock('release');
+  const checksumAt = release.indexOf('name: Generate checksums');
+  const verifyAt = release.indexOf('name: Verify artifact');
+  assert.notEqual(checksumAt, -1, 'release job has no checksum step');
+  assert.notEqual(verifyAt, -1, 'release job has no verification step');
+  assert.ok(checksumAt < verifyAt, 'checksums must be written before verification');
+
+  const checksums = stepBlock('release', 'Generate checksums');
+  assert.match(checksums, /sha256sum "\$\{ISO_NAME\}" >"\$\{ISO_NAME\}\.sha256"/);
+  // The release body still advertises the md5 as an asset.
+  assert.match(checksums, /md5sum "\$\{ISO_NAME\}" >"zhenTo-\$\{VERSION\}-amd64\.md5"/);
+});
+
+test('the build job hands OUT_DIR back to the runner user', () => {
+  // Without this, any later step running as the runner user cannot create a
+  // file next to the ISO - including the artifact upload's staging and any
+  // check that the build needs to write afterwards.
+  const build = stepBlock('build', 'Build ISO');
+  assert.match(build, /sudo chown -R "\$\(id -u\):\$\(id -g\)" "\$\{OUT_DIR\}"/);
 });
 
 test('a second dispatch queues instead of cancelling a release in flight', () => {
