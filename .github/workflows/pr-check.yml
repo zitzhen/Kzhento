@@ -92,6 +92,12 @@ jobs:
         # that already succeeded.
         run: bash tests/resolve-meta.test.sh
 
+      - name: Download retry tests
+        # The preinstalled apps are fetched from upstream releases during a
+        # ~15 minute build; a transient CDN failure must not discard it, while
+        # a missing artifact must still fail fast.
+        run: bash tests/zhento-fetch.test.sh
+
       - name: Login shell tests
         run: bash tests/terminal.test.sh
 

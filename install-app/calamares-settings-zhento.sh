@@ -12,6 +12,10 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # Dependent projects
 sh "$SCRIPT_DIR/curl.sh"
 
+# Downloads are retried: this runs inside a long build, where a transient CDN
+# failure should not throw the whole image away.
+. "$SCRIPT_DIR/lib/zhento-fetch.sh"
+
 # Install a fixed published release artifact only: no source checkout, no
 # floating "latest" tag. Bump VERSION together with the upstream release.
 VERSION="1.0.1"
@@ -26,8 +30,8 @@ TARGET_ROOT=${1:-/}
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-curl -fL -o "$WORK_DIR/$DEB_FILE" "$BASE_URL/$DEB_FILE"
-curl -fL -o "$WORK_DIR/$CHECKSUMS" "$BASE_URL/$CHECKSUMS"
+zhento_fetch "$BASE_URL/$DEB_FILE" "$WORK_DIR/$DEB_FILE"
+zhento_fetch "$BASE_URL/$CHECKSUMS" "$WORK_DIR/$CHECKSUMS"
 
 # SHA256SUMS entries are relative to the release directory, i.e. "./<file>".
 (cd "$WORK_DIR" && awk -v f="./$DEB_FILE" '$2 == f' "$CHECKSUMS" | sha256sum -c -)
