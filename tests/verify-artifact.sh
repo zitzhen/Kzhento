@@ -40,7 +40,7 @@ else
 fi
 
 # 2. Volume label (same 32-char truncation rule as build.sh) and UEFI catalog.
-LABEL="ZhenTo ${VERSION} amd64"
+LABEL="Kzhento ${VERSION} amd64"
 [ "${#LABEL}" -le 32 ] || LABEL=${LABEL:0:32}
 actual_label=$(xorriso -indev "$ISO" -pvd_info 2>/dev/null | sed -n 's/^Volume Id *: *//p')
 [ "$actual_label" = "$LABEL" ] || die "Volume label mismatch: expected '$LABEL', got '$actual_label'"

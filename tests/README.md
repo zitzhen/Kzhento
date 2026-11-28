@@ -57,7 +57,7 @@ bash tests/edit-welcome.test.sh
 
 - `.github/workflows/pr-check.yml`：lint job 内增加单测（含 `workflow-split.test.js`）与版本一致性；`preflight` job 内先跑 `preflight.test.sh` 与 `resolve-meta.test.sh`，再跑 `terminal.test.sh`、`plymouth-payload.test.sh`、`casper-boot-sync.test.sh`、`release-iso-probe.test.sh`、`render.test.sh`、`edit-icons.test.sh` 与 `edit-welcome.test.sh`。
 - `.github/workflows/build-iso.yml`：两个 job，`build` 与 `release`。`build` 在 `./build.sh --check` 之后跑构建，生成 sha256 并把 ISO 与校验文件作为 workflow artifact 上传（`compression-level: 0`，ISO 本身已压缩）；`release` 下载该 artifact，先跑 `verify-artifact.sh` 再拆分上传并创建草稿 Release。拆开的目的是让尾部失败（上传报错、草稿已存在、验收断言需要复核）能用「Re-run failed jobs」只重跑 `release`，耗时以分钟计而不是重跑整次构建，同时调试时 ISO 仍在 artifact 里。artifact 保留 7 天，因此发布必须在 7 天内完成或重跑。
-- `.github/workflows/build-iso.yml` 的两个 job 各自调用 `scripts/resolve-meta.sh` 解析版本、tag 与 base ISO 缓存 key，**不从 `needs.*.outputs` 取值**：重跑失败的 job 时，上游已成功的 job 不会把 outputs 注入进来，取 `needs` 会拿到空版本并产出 `zhenTo--amd64.iso`。`workflow-split.test.js` 断言工作流里不存在 `needs.*.outputs` 引用，`resolve-meta.test.sh` 断言相同输入（URL + sha256）在 tag 与手动触发两条路径上得到同一个缓存 key。
+- `.github/workflows/build-iso.yml` 的两个 job 各自调用 `scripts/resolve-meta.sh` 解析版本、tag 与 base ISO 缓存 key，**不从 `needs.*.outputs` 取值**：重跑失败的 job 时，上游已成功的 job 不会把 outputs 注入进来，取 `needs` 会拿到空版本并产出 `kzhento--amd64.iso`。`workflow-split.test.js` 断言工作流里不存在 `needs.*.outputs` 引用，`resolve-meta.test.sh` 断言相同输入（URL + sha256）在 tag 与手动触发两条路径上得到同一个缓存 key。
 - `.github/workflows/vm-smoke.yml`：仅手动或 `v*` tag 触发，独立 job 且 `continue-on-error: true`。GitHub 托管 runner 无 `/dev/kvm`，TCG 软件模拟很慢；需要稳定结果时应迁到带 KVM 的自托管 runner。
 
 ## 新增测试时

@@ -127,7 +127,7 @@ test('checksums are generated in the release job, before verification', () => {
   const checksums = stepBlock('release', 'Generate checksums');
   assert.match(checksums, /sha256sum "\$\{ISO_NAME\}" >"\$\{ISO_NAME\}\.sha256"/);
   // The release body still advertises the md5 as an asset.
-  assert.match(checksums, /md5sum "\$\{ISO_NAME\}" >"zhenTo-\$\{VERSION\}-amd64\.md5"/);
+  assert.match(checksums, /md5sum "\$\{ISO_NAME\}" >"kzhento-\$\{VERSION\}-amd64\.md5"/);
 });
 
 test('the build job hands OUT_DIR back to the runner user', () => {
@@ -146,7 +146,7 @@ test('no job reads another job\'s outputs', () => {
   // "Re-run failed jobs" re-runs only the failed job and does not inject the
   // outputs of jobs that already succeeded. A release job that took its
   // version from needs.build.outputs would come back with an empty version and
-  // build an ISO called "zhenTo--amd64.iso". Each job resolves it itself.
+  // build an ISO called "kzhento--amd64.iso". Each job resolves it itself.
   assert.doesNotMatch(text, /needs\.[a-zA-Z0-9_-]+\.outputs/);
 
   // ...which means both jobs must run the shared resolver.
