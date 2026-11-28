@@ -264,6 +264,63 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Wallpaper: the stock Kubuntu kpackages are out, the default is an installed
+# one, and the dpkg path filter keeps them out on later unpacks.
+# ---------------------------------------------------------------------------
+printf '== wallpapers\n'
+
+# unsquashfs -cat fails on a directory, so this asks whether the kpackage is
+# still unpacked rather than whether the path is listed.
+if present usr/share/wallpapers/Kubuntu/metadata.json; then
+    stock "the stock Kubuntu wallpaper is still installed"
+elif present usr/share/wallpapers/KubuntuBlack/metadata.json; then
+    stock "the stock Kubuntu Black wallpaper is still installed"
+elif present usr/share/wallpapers/KubuntuLight/metadata.json; then
+    stock "the stock Kubuntu Light wallpaper is still installed"
+else
+    branded "the stock Kubuntu wallpapers are removed"
+fi
+
+filter=$(image /etc/dpkg/dpkg.cfg.d/zhento-wallpapers || true)
+if printf '%s\n' "$filter" | grep -qx 'path-exclude=/usr/share/wallpapers/Kubuntu/\*'; then
+    branded "dpkg skips the removed wallpaper directories on unpack"
+else
+    stock "no dpkg path filter for the removed wallpapers: an upgrade puts them back"
+fi
+
+# The default has to name a kpackage that is installed. Comparing the name
+# against the stock three is not enough: a default that points at nothing is
+# also a black desktop.
+lf=$(image /usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents/defaults || true)
+default_name=$(printf '%s\n' "$lf" | sed -n 's/^Image=//p')
+case "$default_name" in
+"")
+    stock "the Kubuntu look-and-feel defaults has no wallpaper name"
+    ;;
+Kubuntu | KubuntuBlack | KubuntuLight)
+    stock "the default wallpaper is the removed stock one: $default_name"
+    ;;
+*)
+    if present "usr/share/wallpapers/$default_name/metadata.json"; then
+        branded "the default wallpaper is an installed kpackage ($default_name)"
+    else
+        stock "the default wallpaper is not installed: /usr/share/wallpapers/$default_name"
+    fi
+    ;;
+esac
+
+lock=$(image /usr/share/kubuntu-default-settings/kf5-settings/kscreenlockerrc || true)
+lock_name=$(printf '%s\n' "$lock" | sed -n 's#^Image=file:///usr/share/wallpapers/##p')
+lock_name=${lock_name%%/*}
+case "$lock_name" in
+"") note "no lock screen wallpaper configured" ;;
+Kubuntu | KubuntuBlack | KubuntuLight)
+    stock "the lock screen still draws the removed stock wallpaper"
+    ;;
+*) branded "the lock screen does not name a removed wallpaper" ;;
+esac
+
+# ---------------------------------------------------------------------------
 printf '\n'
 if [ "$fail" -eq 0 ]; then
     printf 'All branded surfaces are in place.\n'

@@ -85,6 +85,18 @@ make_image() {
         printf '<svg/>' >"$root/usr/share/icons/breeze/places/64/start-here-kde.svg.zhento-orig"
         ln -s ../usr/share/plymouth/themes/minimal/minimal.plymouth \
             "$root/etc/alternatives/default.plymouth"
+        # Wallpaper: the stock kpackages are gone, an installed one is the
+        # default, and the dpkg filter keeps the stock ones out of later unpacks.
+        mkdir -p "$root/usr/share/wallpapers/Patak" \
+            "$root/usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents" \
+            "$root/usr/share/kubuntu-default-settings/kf5-settings" "$root/etc/dpkg/dpkg.cfg.d"
+        printf '{}' >"$root/usr/share/wallpapers/Patak/metadata.json"
+        printf 'path-exclude=/usr/share/wallpapers/Kubuntu/*\npath-exclude=/usr/share/wallpapers/KubuntuBlack/*\npath-exclude=/usr/share/wallpapers/KubuntuLight/*\n' \
+            >"$root/etc/dpkg/dpkg.cfg.d/zhento-wallpapers"
+        printf '[Wallpaper]\nImage=Patak\n' \
+            >"$root/usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents/defaults"
+        printf '[Greeter][Wallpaper][org.kde.image][General]\nDynamicMode=0\nImage=file:///usr/share/wallpapers/Patak\nPreviewImage=file:///usr/share/wallpapers/Patak\n' \
+            >"$root/usr/share/kubuntu-default-settings/kf5-settings/kscreenlockerrc"
     else
         ln -s ../../../pixmaps/ubuntu-logo-text-dark.png \
             "$root/usr/share/plymouth/themes/spinner/watermark.png"
@@ -103,6 +115,17 @@ make_image() {
         printf '<svg/>' >"$root/usr/share/icons/breeze/places/64/start-here-kde.svg"
         ln -s /usr/share/plymouth/themes/kubuntu-logo/kubuntu-logo.plymouth \
             "$root/etc/alternatives/default.plymouth"
+        # A stock image still carries the Kubuntu wallpapers and draws them.
+        for w in Kubuntu KubuntuBlack KubuntuLight; do
+            mkdir -p "$root/usr/share/wallpapers/$w"
+            printf '{}' >"$root/usr/share/wallpapers/$w/metadata.json"
+        done
+        mkdir -p "$root/usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents" \
+            "$root/usr/share/kubuntu-default-settings/kf5-settings"
+        printf '[Wallpaper]\nImage=Kubuntu\n' \
+            >"$root/usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents/defaults"
+        printf '[Greeter][Wallpaper][org.kde.image][General]\nDynamicMode=1\nImage=file:///usr/share/wallpapers/Kubuntu/#day-night\n' \
+            >"$root/usr/share/kubuntu-default-settings/kf5-settings/kscreenlockerrc"
     fi
 }
 
@@ -172,7 +195,11 @@ for expected in \
     "breeze still ships the stock start-here-kde.svg next to the Kzhento PNG" \
     "/etc/os-release LOGO=ubuntu-logo" \
     "root login shell is /bin/bash" \
-    "/etc/default/useradd does not default to /bin/zsh"; do
+    "/etc/default/useradd does not default to /bin/zsh" \
+    "the stock Kubuntu wallpaper is still installed" \
+    "no dpkg path filter for the removed wallpapers" \
+    "the default wallpaper is the removed stock one: Kubuntu" \
+    "the lock screen still draws the removed stock wallpaper"; do
     case "$out" in
     *"$expected"*) ;;
     *)
