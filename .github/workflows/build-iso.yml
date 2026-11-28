@@ -180,7 +180,7 @@ jobs:
           overwrite: true
           retention-days: 7
           if-no-files-found: error
-          path: ${{ runner.temp }}/out/zhenTo-${{ steps.meta.outputs.version }}-amd64.iso
+          path: ${{ runner.temp }}/out/kzhento-${{ steps.meta.outputs.version }}-amd64.iso
 
   release:
     needs: build
@@ -235,21 +235,21 @@ jobs:
         run: |
           set -e
           cd dist
-          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+          ISO_NAME="kzhento-${VERSION}-amd64.iso"
           sha256sum "${ISO_NAME}" >"${ISO_NAME}.sha256"
-          md5sum "${ISO_NAME}" >"zhenTo-${VERSION}-amd64.md5"
-          cat "${ISO_NAME}.sha256" "zhenTo-${VERSION}-amd64.md5"
+          md5sum "${ISO_NAME}" >"kzhento-${VERSION}-amd64.md5"
+          cat "${ISO_NAME}.sha256" "kzhento-${VERSION}-amd64.md5"
           ls -lh
 
       - name: Verify artifact
         run: |
           ls -lh dist
-          bash tests/verify-artifact.sh "dist/zhenTo-${VERSION}-amd64.iso" "$VERSION"
+          bash tests/verify-artifact.sh "dist/kzhento-${VERSION}-amd64.iso" "$VERSION"
 
       - name: Split into compressed volumes
         run: |
           set -e
-          ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+          ISO_NAME="kzhento-${VERSION}-amd64.iso"
           (
             cd dist
             # Each volume is 1800M (1.76GiB), well under GitHub Release's 2G per-file limit
@@ -269,19 +269,19 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.meta.outputs.tag }}
-          name: ZhenTo ${{ steps.meta.outputs.version }}
+          name: Kzhento ${{ steps.meta.outputs.version }}
           draft: true
           prerelease: false
           fail_on_unmatched_files: true
           files: dist/*
           body: |
-            ZhenTo ${{ steps.meta.outputs.version }} (UEFI-only, based on Ubuntu 26.04.1 LTS)
+            Kzhento ${{ steps.meta.outputs.version }} (UEFI-only, based on Kubuntu 26.04.1 LTS)
 
             ## Files
 
-            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip` / `.z01` / `.z02` ...: compressed volumes, each under 2G
-            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256`: sha256 of the full ISO
-            - `zhenTo-${{ steps.meta.outputs.version }}-amd64.md5`: md5 of the full ISO
+            - `kzhento-${{ steps.meta.outputs.version }}-amd64.iso.zip` / `.z01` / `.z02` ...: compressed volumes, each under 2G
+            - `kzhento-${{ steps.meta.outputs.version }}-amd64.iso.sha256`: sha256 of the full ISO
+            - `kzhento-${{ steps.meta.outputs.version }}-amd64.md5`: md5 of the full ISO
             - `SHA256SUMS`: sha256 of each volume
 
             ## Restore the ISO
@@ -289,10 +289,10 @@ jobs:
             Download all volumes into the same directory, then run:
 
             ```bash
-            cat zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.z* \
-                zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.zip > joined.zip
+            cat kzhento-${{ steps.meta.outputs.version }}-amd64.iso.z* \
+                kzhento-${{ steps.meta.outputs.version }}-amd64.iso.zip > joined.zip
             unzip -o joined.zip
-            sha256sum -c zhenTo-${{ steps.meta.outputs.version }}-amd64.iso.sha256
+            sha256sum -c kzhento-${{ steps.meta.outputs.version }}-amd64.iso.sha256
             ```
 
             Info-ZIP cannot read a split archive directly: running `unzip` on the
@@ -304,7 +304,7 @@ jobs:
             ## Write to a USB drive
 
             ```bash
-            sudo dd if=zhenTo-${{ steps.meta.outputs.version }}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+            sudo dd if=kzhento-${{ steps.meta.outputs.version }}-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
             ```
 
             UEFI boot only.
