@@ -8,7 +8,7 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 
 整个镜像由 shell 脚本组装完成——旧的 Cubic 依赖已被移除。从解压官方 ISO、在 `chroot` 中打补丁，到重新打包成可启动镜像，一切都可以在本仓库中复现。
 
-> **关于源代码的说明：** 脚本本身未做任何修改。其中的默认值与运行时字符串（`BASE_ISO`、卷标、产物文件名、`/etc/os-release`、GRUB 菜单）仍沿用 ZhenTo/Ubuntu 的标识。构建时请通过 `BASE_ISO` 传入你自己的 Kubuntu ISO。
+> **关于源代码的说明：** 脚本本身未做任何修改。其中的默认值与运行时字符串（`BASE_ISO`、`/etc/os-release`、GRUB 菜单）仍沿用 ZhenTo/Ubuntu 的标识。构建时请通过 `BASE_ISO` 传入你自己的 Kubuntu ISO。
 
 | | |
 |---|---|
@@ -113,7 +113,7 @@ sudo ./build.sh --check
 sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 ```
 
-成功后会在 `out/` 下生成 ISO 及其 `.md5` 文件；沿用原脚本的命名，仍为 `zhenTo-<VERSION>-amd64.iso` 和 `zhenTo-<VERSION>-amd64.md5`。除非设置 `KEEP_WORK=1`，否则 `work/` 下的中间文件会被清除。
+成功后会在 `out/` 下生成 `kzhento-<VERSION>-amd64.iso` 及其 `kzhento-<VERSION>-amd64.md5`。除非设置 `KEEP_WORK=1`，否则 `work/` 下的中间文件会被清除。
 
 > **注意：** `BASE_ISO` 默认值指向维护者本机的 Ubuntu ISO 路径（继承自 ZhenTo）。请务必通过 `BASE_ISO=...` 传入你自己的 Kubuntu ISO，或修改 `build.sh` 中的默认值。
 
@@ -131,7 +131,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 |---|---|---|
 | `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | 源 Kubuntu 桌面 ISO（继承的默认值；请覆盖） |
 | `VERSION` | `0.1.0` | 产品版本（写入 ISO 名称和 `os-release`） |
-| `VOLID` | `ZhenTo <VERSION> amd64` | ISO 卷标（继承值；可覆盖为 `VOLID="Kzhento <VERSION> amd64"`，截断为 32 个字符） |
+| `VOLID` | `Kzhento <VERSION> amd64` | ISO 卷标（截断为 32 个字符） |
 | `WORK_DIR` | `<repo>/work` | 中间构建目录 |
 | `OUT_DIR` | `<repo>/out` | ISO 输出目录 |
 | `PATCH_LAYERS` | `auto` | `auto` 或以空格分隔的待修改 casper 层文件列表 |
@@ -185,7 +185,7 @@ Kubuntu 自带的视觉元素在六个位置被替换，每个位置对应 `buil
 1. **写入 U 盘**（请将 `/dev/sdX` 替换为你的实际设备——此操作会清空该设备）：
 
    ```bash
-   sudo dd if=zhenTo-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+   sudo dd if=kzhento-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
    ```
 
 2. **启动**目标机器并进入 UEFI 模式，选择 U 盘。不支持传统 BIOS 启动。
@@ -193,11 +193,11 @@ Kubuntu 自带的视觉元素在六个位置被替换，每个位置对应 `buil
 
 ## 下载发行版
 
-GitHub Release 的资产被拆分为 1800 MB 的压缩分卷，以低于每个文件 2 GB 的限制。按如下方式合并并校验（沿用原有文件命名）：
+GitHub Release 的资产被拆分为 1800 MB 的压缩分卷，以低于每个文件 2 GB 的限制。按如下方式合并并校验：
 
 ```bash
-unzip zhenTo-<VERSION>-amd64.iso.zip
-sha256sum -c zhenTo-<VERSION>-amd64.iso.sha256
+unzip kzhento-<VERSION>-amd64.iso.zip
+sha256sum -c kzhento-<VERSION>-amd64.iso.sha256
 ```
 
 仓库提供了辅助脚本，可通过 GitHub CLI 下载某个发行版的**全部**资产（包括草稿）：

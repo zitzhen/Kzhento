@@ -8,7 +8,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 
 整個映像由 shell 腳本組裝完成——舊有的 Cubic 依賴已被移除。從解壓官方 ISO、在 `chroot` 中修補，到重新封裝成可開機映像，一切都能在本儲存庫中重現。
 
-> **關於原始碼的說明：** 腳本本身未做任何修改。其中的預設值與執行期字串（`BASE_ISO`、磁碟區標籤、產出檔名、`/etc/os-release`、GRUB 選單）仍沿用 ZhenTo/Ubuntu 的識別。建置時請透過 `BASE_ISO` 傳入你自己的 Kubuntu ISO。
+> **關於原始碼的說明：** 腳本本身未做任何修改。其中的預設值與執行期字串（`BASE_ISO`、`/etc/os-release`、GRUB 選單）仍沿用 ZhenTo/Ubuntu 的識別。建置時請透過 `BASE_ISO` 傳入你自己的 Kubuntu ISO。
 
 | | |
 |---|---|
@@ -108,7 +108,7 @@ sudo ./build.sh --check
 sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 ```
 
-成功後會在 `out/` 下產生 ISO 及其 `.md5` 檔案；沿用原腳本的命名，仍為 `zhenTo-<VERSION>-amd64.iso` 與 `zhenTo-<VERSION>-amd64.md5`。除非設定 `KEEP_WORK=1`，否則 `work/` 下的中間檔案會被清除。
+成功後會在 `out/` 下產生 `kzhento-<VERSION>-amd64.iso` 及其 `kzhento-<VERSION>-amd64.md5`。除非設定 `KEEP_WORK=1`，否則 `work/` 下的中間檔案會被清除。
 
 > **注意：** `BASE_ISO` 預設值指向維護者本機的 Ubuntu ISO 路徑（繼承自 ZhenTo）。請務必透過 `BASE_ISO=...` 傳入你自己的 Kubuntu ISO，或修改 `build.sh` 中的預設值。
 
@@ -126,7 +126,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 |---|---|---|
 | `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | 來源 Kubuntu 桌面 ISO（繼承的預設值；請覆蓋） |
 | `VERSION` | `0.1.0` | 產品版本（寫入 ISO 名稱與 `os-release`） |
-| `VOLID` | `ZhenTo <VERSION> amd64` | ISO 磁碟區標籤（繼承值；可覆蓋為 `VOLID="Kzhento <VERSION> amd64"`，截斷為 32 個字元） |
+| `VOLID` | `Kzhento <VERSION> amd64` | ISO 磁碟區標籤（截斷為 32 個字元） |
 | `WORK_DIR` | `<repo>/work` | 中間建置目錄 |
 | `OUT_DIR` | `<repo>/out` | ISO 輸出目錄 |
 | `PATCH_LAYERS` | `auto` | `auto` 或以空格分隔的待修改 casper 層檔案清單 |
@@ -151,7 +151,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 1. **寫入 USB 隨身碟**（請將 `/dev/sdX` 替換為你的實際裝置——此操作會清空該裝置）：
 
    ```bash
-   sudo dd if=zhenTo-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+   sudo dd if=kzhento-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
    ```
 
 2. **開機**目標機器並進入 UEFI 模式，選擇 USB 隨身碟。不支援傳統 BIOS 開機。
@@ -159,11 +159,11 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 ## 下載發行版
 
-GitHub Release 的資產被分割為 1800 MB 的壓縮分卷，以低於單一檔案 2 GB 的限制。請依下列方式合併並驗證（沿用原有檔案命名）：
+GitHub Release 的資產被分割為 1800 MB 的壓縮分卷，以低於單一檔案 2 GB 的限制。請依下列方式合併並驗證：
 
 ```bash
-unzip zhenTo-<VERSION>-amd64.iso.zip
-sha256sum -c zhenTo-<VERSION>-amd64.iso.sha256
+unzip kzhento-<VERSION>-amd64.iso.zip
+sha256sum -c kzhento-<VERSION>-amd64.iso.sha256
 ```
 
 儲存庫提供輔助腳本，可透過 GitHub CLI 下載某個發行版的**全部**資產（包含草稿）：

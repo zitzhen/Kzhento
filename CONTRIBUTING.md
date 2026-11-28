@@ -105,7 +105,7 @@ The product version must match in three places; currently `0.1.0`:
 | `edit-os-release/os-release` | `VERSION_ID` |
 | `.github/workflows/build-iso.yml` | `inputs.version.default` |
 
-`tests/check-version-consistency.sh` validates these values. When bumping the version, update all three and check the output names (`zhenTo-<VERSION>-amd64.iso` / `.md5`). `build.sh` refuses to run if `VERSION` does not match the `VERSION_ID` in `os-release`.
+`tests/check-version-consistency.sh` validates these values. When bumping the version, update all three and check the output names (`kzhento-<VERSION>-amd64.iso` / `.md5`). `build.sh` refuses to run if `VERSION` does not match the `VERSION_ID` in `os-release`.
 
 ## Tests and Checks
 

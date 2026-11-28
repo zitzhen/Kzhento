@@ -2,7 +2,7 @@
 # Copyright (C) 2026 ZIT STUDIO
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# Best-effort VM boot smoke test for the UEFI-only ZhenTo ISO.
+# Best-effort VM boot smoke test for the UEFI-only Kzhento ISO.
 # Boots with QEMU + OVMF, captures the serial console, and checks that the
 # firmware / GRUB / kernel start cleanly. The shipped GRUB entry uses
 # "quiet splash" and does not enable a serial console, so a login prompt is
