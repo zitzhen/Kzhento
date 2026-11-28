@@ -32,7 +32,7 @@ Usage: ./download-release.sh <tag> [owner/name] [output dir]
 
 Examples:
   ./download-release.sh v0.1.0
-  ./download-release.sh v0.1.0 zitzhen/zhenTo ./zhenTo-0.1.0
+  ./download-release.sh v0.1.0 zitzhen/Kzhento ./kzhento-0.1.0
 EOF
 }
 
@@ -156,7 +156,7 @@ if [ -f "$OUTDIR/SHA256SUMS" ]; then
     # The full-ISO checksum is what a written USB drive should be compared
     # against, so point at it rather than re-hashing 5G here.
     echo "After joining the volumes, check the ISO with:"
-    for f in "$OUTDIR"/zhenTo-*.iso.sha256; do
+    for f in "$OUTDIR"/kzhento-*.iso.sha256; do
         [ -f "$f" ] && echo "  (cd $OUTDIR && sha256sum -c $(basename "$f"))"
     done
 else

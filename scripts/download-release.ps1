@@ -18,7 +18,7 @@
     .\download-release.ps1 v0.1.0
 
 .EXAMPLE
-    .\download-release.ps1 v0.1.0 zitzhen/zhenTo D:\out
+    .\download-release.ps1 v0.1.0 zitzhen/Kzhento D:\out
 #>
 param(
     [Parameter(Position = 0)][string]$Tag,

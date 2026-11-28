@@ -157,5 +157,5 @@ echo   output dir  Optional, defaults to .\[repo name]-[tag]
 echo.
 echo Examples:
 echo   download-release.cmd v0.1.0
-echo   download-release.cmd v0.1.0 zitzhen/zhenTo .\zhenTo-0.1.0
+echo   download-release.cmd v0.1.0 zitzhen/Kzhento .\kzhento-0.1.0
 exit /b 1
