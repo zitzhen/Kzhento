@@ -45,6 +45,7 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 - **內建 Logo** —— 建置時從 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下載 Kzhento Logo（固定 commit + SHA256 檢查），安裝至 `/usr/share/backgrounds/kzhento/`， repository 中不再存放二進位圖片。
 - **歡迎中心** —— 不只換掉開啟視窗的通知（`kubuntu-notification-helper` 語言包），也換掉視窗內容：`plasma-welcome` 的 `extra-pages/01-Kubuntu.qml` 把 Kubuntu 標題、內文與兩張圖都寫死在 QML 裡，上游對未翻譯的來源語言沒有語言包可覆寫，因此由 `edit-notification/edit-welcome.sh` 原地取代該頁，原版保留為 `.zhento-orig`。
 - **發行版圖示** —— `start-here-kde` 換成 Kzhento 圓環「Kz」標記：它是「關於此系統」頁面顯示的 Logo（該頁只接受圖示*名稱*，由 `QIcon::fromTheme()` 解析），也是 Plasma 應用程式啟動器所用的圖示名。由 `edit-logo.sh/edit-icons.sh` 為 Breeze、Breeze Dark 與 hicolor 的每個尺寸目錄寫入 PNG，並移除原本的 KDE SVG（保留為 `.zhento-orig`）。
+- **預設桌布** —— 移除內建的 Kubuntu 桌布（`Kubuntu`、`Kubuntu Black`、`Kubuntu Light`），並把映像內既有的 `Patak`（Áron Kovács，寒溪，來自 `plasma-workspace-wallpapers`）設為預設：同時改寫 look-and-feel 的 `defaults`、佈局指令碼與鎖定畫面設定。映像內另會安裝 `/etc/dpkg/dpkg.cfg.d/` 下的 dpkg 路徑過濾器，日後升級或重新安裝 `kubuntu-wallpapers` 也不會把這些 Kubuntu 桌布解包回來。
 - **僅 UEFI 映像** —— 附加單一 EFI 系統分割區至 ISO，並使用 `xorriso` 產生開機項目。
 - **預裝開發工具** —— `curl`、`git`、`zsh` 與 [patchsplit](https://github.com/zitzhen/patchsplit)（來自 `ppa:zitzhen/patchsplit` PPA）。
 - **所有帳號使用 zsh** —— 既有帳號切換為 `/bin/zsh` 並安裝啟用 Starship 的 `.zshrc`，`/etc/default/useradd` 讓新建帳號使用相同 shell。
@@ -75,6 +76,9 @@ Kzhento 是一款基於 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 客製化的 
 │   ├── edit-logo.sh          # 建置時下載並安裝 Kzhento Logo
 │   ├── edit-pixmaps.sh       # 以 Kzhento 字標取代 /usr/share/pixmaps/ubuntu-logo-text-dark.png
 │   └── edit-icons.sh         # 取代 start-here-kde 圖示（「關於此系統」與啟動器）
+├── edit-wallpaper/
+│   ├── set-default-wallpaper.sh     # 將映像內的桌布 kpackage 設為預設（look-and-feel、佈局、鎖定畫面）
+│   └── remove-kubuntu-wallpapers.sh # 移除內建的 Kubuntu 桌布，並以 dpkg 路徑過濾器阻止其被解包回來
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # 將 SHELL=/bin/zsh 寫入 /etc/default/useradd（新建帳號）
 │   ├── useradd               # Kzhento 的 /etc/default/useradd
@@ -133,6 +137,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 | `KEEP_WORK` | `0` | 設為 `1` 以保留中間檔案供偵錯 |
 | `SQUASHFS_COMP` | 沿用原值 | Squashfs 壓縮演算法（`zstd` 比 `xz` 快得多） |
 | `SQUASHFS_BLOCK` | 沿用原值 | Squashfs 區塊大小（通常為 `131072`） |
+| `WALLPAPER` | `Patak` | 設為預設的桌布 kpackage 名稱；內建的 Kubuntu 桌布無論如何都會被移除 |
 
 若 `VERSION` 與 `edit-os-release/os-release` 中的版本不一致，建置腳本將拒絕執行，以確保品牌形象不會與版本號脫節。
 
@@ -185,6 +190,7 @@ Windows 使用者可使用 `scripts\download-release.ps1`（PowerShell）或 `sc
 | 單元測試／版本一致性 | `node --test tests/*.test.js` 與 `bash tests/check-version-consistency.sh` | Node.js 22+；無需 root、無需網路 | 是 |
 | 預檢（mock） | `bash tests/preflight.test.sh` | bash；無需 root、無需網路 | 是 |
 | 登入終端 | `bash tests/terminal.test.sh` | bash；無需 root、無需網路 | 是 |
+| 預設桌布與移除桌布 | `bash tests/edit-wallpaper.test.sh` | bash；無需 root、無需網路（`id` 被 mock，目標為臨時目錄） | 是 |
 | 產物驗證 | `bash tests/verify-artifact.sh <iso> <version>` | `xorriso`、`unsquashfs`、`md5sum`、`sha256sum` | 否（在 build job 內阻斷建置） |
 | VM 開機煙霧測試 | `bash tests/vm-smoke.sh <iso> [逾時秒數]` | `qemu-system-x86_64`、OVMF | 否（僅供參考） |
 
@@ -195,6 +201,7 @@ node --test tests/*.test.js
 bash tests/check-version-consistency.sh
 bash tests/preflight.test.sh
 bash tests/terminal.test.sh
+bash tests/edit-wallpaper.test.sh
 ```
 
 詳情與安全注意事項請見 [tests/README.md](tests/README.md)。

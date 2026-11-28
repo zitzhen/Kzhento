@@ -43,6 +43,7 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 
 - **品牌重塑** —— `/etc/os-release` 和 GRUB 启动菜单是 Kzhento 的品牌入口（当前仍沿用继承而来的 ZhenTo 字样）。
 - **预置 Logo** —— 构建时从 [kzhento-icon](https://github.com/zitzhen/kzhento-icon) 下载 Kzhento Logo（固定 commit + SHA256 校验），安装到 `/usr/share/backgrounds/kzhento/`，仓库中不再存放二进制图片。
+- **默认壁纸** —— 移除自带的 Kubuntu 壁纸（`Kubuntu`、`Kubuntu Black`、`Kubuntu Light`），并把镜像内已有的 `Patak`（Áron Kovács，寒溪，来自 `plasma-workspace-wallpapers`）设为默认：同时改写 look-and-feel 的 `defaults`、布局脚本与锁屏配置。镜像内还会安装 `/etc/dpkg/dpkg.cfg.d/` 下的 dpkg 路径过滤器，即使日后升级或重装 `kubuntu-wallpapers`，这些 Kubuntu 壁纸也不会被解包回来。
 - **仅 UEFI 镜像** —— 向 ISO 追加单个 EFI 系统分区，并使用 `xorriso` 生成启动项。
 - **预装开发工具** —— `curl`、`git`、`zsh` 和 [patchsplit](https://github.com/zitzhen/patchsplit)（来自 `ppa:zitzhen/patchsplit` PPA）。
 - **所有账户使用 zsh** —— 已有账户切换为 `/bin/zsh` 并安装启用 Starship 的 `.zshrc`，`/etc/default/useradd` 让新建账户使用同一 shell。
@@ -80,6 +81,9 @@ Kzhento 是一款基于 **Kubuntu 26.04.1 LTS "Resolute Raccoon"** 定制的 Lin
 │   ├── plasma-welcome/       # K-Zhento 的欢迎中心首页
 │   ├── edit-notification.sh  # 安装语言包并重命名启动项
 │   └── edit-welcome.sh       # 替换 plasma-welcome 首页
+├── edit-wallpaper/
+│   ├── set-default-wallpaper.sh     # 将镜像内的壁纸 kpackage 设为默认（look-and-feel、布局、锁屏）
+│   └── remove-kubuntu-wallpapers.sh # 移除自带的 Kubuntu 壁纸，并用 dpkg 路径过滤器阻止其被解包回来
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # 向 /etc/default/useradd 写入 SHELL=/bin/zsh（新建账户）
 │   ├── useradd               # Kzhento 的 /etc/default/useradd
@@ -138,6 +142,7 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 | `KEEP_WORK` | `0` | 设为 `1` 以保留中间文件用于调试 |
 | `SQUASHFS_COMP` | 继承原值 | Squashfs 压缩算法（`zstd` 比 `xz` 快得多） |
 | `SQUASHFS_BLOCK` | 继承原值 | Squashfs 块大小（通常为 `131072`） |
+| `WALLPAPER` | `Patak` | 设为默认的壁纸 kpackage 名称；自带的 Kubuntu 壁纸无论如何都会被移除 |
 
 如果 `VERSION` 与 `edit-os-release/os-release` 中的版本不一致，构建脚本将拒绝运行，从而确保品牌信息不会与版本号脱节。
 
@@ -153,16 +158,19 @@ sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 
 ### 品牌替换
 
-Kubuntu 自带的视觉元素在六个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
+Kubuntu 自带的视觉元素在七个位置被替换，每个位置对应 `build.sh` 在解包层内执行的一步：
 
 | 位置 | 由什么控制 | 对应步骤 |
 |---|---|---|
+| 桌面壁纸（默认值与可选壁纸） | `look-and-feel/*/contents/{defaults,layouts}`、`kscreenlockerrc`、`/usr/share/wallpapers` | `edit-wallpaper/set-default-wallpaper.sh`，随后 `remove-kubuntu-wallpapers.sh` |
 | 开机画面（Plymouth） | `/usr/share/plymouth/themes/minimal` + `default.plymouth` | `edit-plymouth/edit-plymouth.sh`，随后 `select-theme.sh` |
 | `/usr/share/pixmaps` 里的发行版字标 | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
 | 发行版图标（`start-here-kde`） | 各图标主题的 `places/*/start-here-kde.*` | `edit-logo.sh/edit-icons.sh` |
 | 欢迎中心通知 | `kubuntu-notification-helper.mo` 语言包 | `edit-notification/edit-notification.sh` |
 | 欢迎中心首页 | `plasma-welcome/extra-pages/01-Kubuntu.qml` | `edit-notification/edit-welcome.sh` |
 | 「关于本系统」页面 | `/etc/xdg/kcm-about-distrorc` | `edit-os-release/edit-about-system.sh` |
+
+- 「默认壁纸」并不是一项设置。`edit-wallpaper/set-default-wallpaper.sh` 会同时改写 Plasma 读取壁纸的三个地方：look-and-feel 的 `[Wallpaper] Image=`、生成新账户 `appletsrc` 的布局脚本（Kubuntu 的主题把自家壁纸和昼夜标记写死在那里）、以及锁屏的 `[Greeter][Wallpaper]` 段。脚本只改动指向自带 Kubuntu 壁纸（或目标壁纸自身）的条目，Breeze 自己的 `Next` 默认值保持不变。随后 `remove-kubuntu-wallpapers.sh` 删除三个 `kubuntu-wallpapers` kpackage，并安装 dpkg **路径过滤器**（`/etc/dpkg/dpkg.cfg.d/zhento-wallpapers`）——只删目录的话，下次升级或重装 `kubuntu-wallpapers` 会把它们解包回来，而该包是 `kubuntu-settings-desktop` 的硬依赖，无法直接卸载。`WALLPAPER=<名称>` 可换成镜像内任意已安装的 kpackage。
 
 开机素材由 Logo 现场渲染而非随仓库提供，因此始终与品牌一致：`edit-plymouth/render.py` 生成白墨透明的整幅水印（显示在开机画面底部）、48×48 的转圈帧与 512×512 的图标母版（后两者取自同一块带圆环的「Kz」），以及 1024×309 的欢迎中心字标。水印与转圈帧按黑底重新着色（炭灰墨迹改白、保留蓝色点缀），图标母版与字标保留 Logo 自身的颜色，因为它们显示在浅色桌面上。`tests/render.test.sh` 校验这四种输出。
 
