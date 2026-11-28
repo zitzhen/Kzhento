@@ -3,7 +3,7 @@
 # Author: Oliver Lin <oliver@liuxiaozhen.dev>
 # SPDX-License-Identifier: AGPL-3.0-only
 #
-# ZhenTo ISO build script (UEFI-only, no longer depends on Cubic)
+# Kzhento ISO build script (UEFI-only, no longer depends on Cubic)
 #
 #   sudo ./build.sh              Unpack official ISO -> install APPs in chroot -> repack -> output ISO
 #   sudo ./build.sh --apps-only  Run install-app/*.sh only (inside chroot or on a real system)
@@ -12,7 +12,7 @@
 # Overridable environment variables:
 #   BASE_ISO       Base ISO (default /home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso)
 #   VERSION        Version string (default 0.1.0)
-#   VOLID          Disc volume label (default "ZhenTo <VERSION> amd64")
+#   VOLID          Disc volume label (default "Kzhento <VERSION> amd64")
 #   WORK_DIR       Intermediate build directory (default <repo>/work, needs ~35G free)
 #   OUT_DIR        Output directory (default <repo>/out)
 #   PATCH_LAYERS   auto or space-separated casper layer file names
@@ -32,7 +32,7 @@ SELF="$SELF_DIR/$(basename "$0")"
 
 BASE_ISO=${BASE_ISO:-/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso}
 VERSION=${VERSION:-0.1.0}
-VOLID=${VOLID:-"ZhenTo ${VERSION} amd64"}
+VOLID=${VOLID:-"Kzhento ${VERSION} amd64"}
 WORK_DIR=${WORK_DIR:-"$SELF_DIR/work"}
 OUT_DIR=${OUT_DIR:-"$SELF_DIR/out"}
 PATCH_LAYERS=${PATCH_LAYERS:-auto}
@@ -40,7 +40,7 @@ KEEP_WORK=${KEEP_WORK:-0}
 SQUASHFS_COMP=${SQUASHFS_COMP:-}
 SQUASHFS_BLOCK=${SQUASHFS_BLOCK:-}
 
-ISO_NAME="zhenTo-${VERSION}-amd64.iso"
+ISO_NAME="kzhento-${VERSION}-amd64.iso"
 ISO_DIR="$WORK_DIR/iso"
 ROOT_DIR="$WORK_DIR/root"
 EFI_IMG="$WORK_DIR/efi.img"
@@ -961,12 +961,12 @@ main() {
 
     (
         cd "$OUT_DIR"
-        md5sum "$ISO_NAME" >"zhenTo-${VERSION}-amd64.md5"
+        md5sum "$ISO_NAME" >"kzhento-${VERSION}-amd64.md5"
     )
 
     log "Done"
     printf '  ISO : %s (%s)\n' "$OUT_DIR/$ISO_NAME" "$(human "$(stat -c%s "$OUT_DIR/$ISO_NAME")")"
-    printf '  MD5 : %s\n' "$OUT_DIR/zhenTo-${VERSION}-amd64.md5"
+    printf '  MD5 : %s\n' "$OUT_DIR/kzhento-${VERSION}-amd64.md5"
     xorriso -indev "$OUT_DIR/$ISO_NAME" -report_el_torito plain 2>/dev/null |
         grep 'El Torito boot img' || true
 
