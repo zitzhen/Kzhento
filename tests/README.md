@@ -12,6 +12,7 @@
 | 素材渲染 | `render.test.sh` | `bash tests/render.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无 root、无网络 | 是 |
 | 发行版图标安装 | `edit-icons.test.sh` | `bash tests/edit-icons.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）；无 root、无网络（`id` 被 mock，目标均为临时目录） | 是 |
 | 欢迎中心首页 | `edit-welcome.test.sh` | `bash tests/edit-welcome.test.sh` | bash、Python 3 + Pillow、`logo/kzhento_transparent.png`（缺失则跳过）、`qmllint`（缺失则跳过该项）；无 root、无网络 | 是 |
+| 默认壁纸与移除壁纸 | `edit-wallpaper.test.sh` | `bash tests/edit-wallpaper.test.sh` | bash；无 root、无网络（`id` 被 mock，目标均为临时目录） | 是 |
 | 开机画面载荷 | `plymouth-payload.test.sh` | `bash tests/plymouth-payload.test.sh` | bash；无 root、无网络、无需 logo | 是 |
 | casper 引导文件同步 | `casper-boot-sync.test.sh` | `bash tests/casper-boot-sync.test.sh` | bash；无 root、无网络 | 是 |
 | 发布镜像核查器 | `release-iso-probe.test.sh` | `bash tests/release-iso-probe.test.sh` | bash、`mksquashfs`、`cpio`、`gzip`；无 root、无网络 | 是 |
@@ -34,6 +35,7 @@ bash tests/release-iso-probe.test.sh
 bash tests/render.test.sh
 bash tests/edit-icons.test.sh
 bash tests/edit-welcome.test.sh
+bash tests/edit-wallpaper.test.sh
 ```
 
 ## 版本真值

@@ -43,6 +43,7 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 
 - **Rebranded identity** — `/etc/os-release` and the GRUB boot menu are the branding points for Kzhento (currently still populated with the inherited ZhenTo strings).
 - **Bundled logo** — the Kzhento logo is downloaded from [kzhento-icon](https://github.com/zitzhen/kzhento-icon) at build time (pinned commit + SHA256 check) and installed under `/usr/share/backgrounds/kzhento/`, so no binary artwork is stored in this repository.
+- **Default wallpaper** — the stock Kubuntu wallpapers (`Kubuntu`, `Kubuntu Black`, `Kubuntu Light`) are removed, and an installed kpackage — `Patak` (Áron Kovács, 寒溪) from `plasma-workspace-wallpapers` — becomes the default in the look-and-feel defaults, the layout scripts and the lock screen. A dpkg path filter in `/etc/dpkg/dpkg.cfg.d/` keeps the Kubuntu artwork out even after a package upgrade or reinstall.
 - **UEFI-only image** — a single EFI system partition is appended to the ISO; boot entries are generated with `xorriso`.
 - **Developer tools preinstalled** — `curl`, `git`, `zsh`, and [patchsplit](https://github.com/zitzhen/patchsplit) (from the `ppa:zitzhen/patchsplit` PPA).
 - **zsh for every account** — existing accounts are switched to `/bin/zsh` with a Starship-enabled `.zshrc`, and `/etc/default/useradd` gives new accounts the same shell.
@@ -80,6 +81,9 @@ The whole image is assembled by shell scripts — the old dependency on Cubic ha
 │   ├── plasma-welcome/       # K-Zhento's first Welcome Center page
 │   ├── edit-notification.sh  # Install the catalogues and rename the launcher entry
 │   └── edit-welcome.sh       # Replace plasma-welcome's first page
+├── edit-wallpaper/
+│   ├── set-default-wallpaper.sh       # Make an installed kpackage the default (look-and-feel, layout, lock screen)
+│   └── remove-kubuntu-wallpapers.sh   # Remove the stock Kubuntu kpackages and filter them out of dpkg unpacks
 ├── edit-etc-default-useradd/
 │   ├── edit-etc-default-useradd.sh # Write SHELL=/bin/zsh into /etc/default/useradd (new accounts)
 │   ├── useradd               # Kzhento /etc/default/useradd
@@ -138,6 +142,7 @@ On success the ISO and its `.md5` file are produced under `out/` as `kzhento-<VE
 | `KEEP_WORK` | `0` | Set to `1` to keep intermediate files for debugging |
 | `SQUASHFS_COMP` | inherited | Squashfs compression (`zstd` is much faster than `xz`) |
 | `SQUASHFS_BLOCK` | inherited | Squashfs block size (usually `131072`) |
+| `WALLPAPER` | `Patak` | Installed wallpaper kpackage set as the default; the stock Kubuntu ones are removed regardless |
 
 The build script refuses to run if `VERSION` does not match `edit-os-release/os-release`, so branding never drifts from the release number.
 
@@ -153,10 +158,11 @@ Both scripts also run against a real system or an unpacked root: `sudo ./edit-te
 
 ### Branding
 
-Kubuntu's own artwork is replaced on six surfaces, each by a step that `build.sh` runs inside the unpacked layer:
+Kubuntu's own artwork is replaced on seven surfaces, each by a step that `build.sh` runs inside the unpacked layer:
 
 | Surface | Controlled by | Step |
 |---|---|---|
+| Desktop wallpaper (default and choices) | `look-and-feel/*/contents/{defaults,layouts}`, `kscreenlockerrc`, `/usr/share/wallpapers` | `edit-wallpaper/set-default-wallpaper.sh`, then `remove-kubuntu-wallpapers.sh` |
 | Boot splash (Plymouth) | `/usr/share/plymouth/themes/minimal` + `default.plymouth` | `edit-plymouth/edit-plymouth.sh`, then `select-theme.sh` |
 | Distro wordmark in `/usr/share/pixmaps` | `ubuntu-logo-text-dark.png` | `edit-logo.sh/edit-pixmaps.sh` |
 | Distro icon (`start-here-kde`) | the icon themes' `places/*/start-here-kde.*` | `edit-logo.sh/edit-icons.sh` |
@@ -179,6 +185,8 @@ Details worth knowing when changing this:
 - The theme only reaches the boot screen once it is baked into the **initramfs**, which is why `select-theme.sh` rebuilds it last, after the chroot is gone (it needs `/proc` and `/sys`).
 - Baking the initramfs into the **layer** is not enough: GRUB boots `/casper/initrd`, which lives outside every squashfs, while `update-initramfs` only writes `/boot/initrd.img-<kver>` inside the layer. `build.sh` installs the rebuilt initramfs as `casper/initrd` (and keeps `casper/vmlinuz` in step) before repacking, and `tests/casper-boot-sync.test.sh` pins that. Without it every branding check inside the layer still passes while the ISO boots the base ISO's stock artwork — which is exactly how the branded 0.1.0 release shipped showing the Kubuntu logo.
 - Copying the file out is still not enough. The live boot needs `conf/uuid.conf` and `conf/conf.d/default-boot-to-casper.conf`, and the casper initramfs hook only writes them when `CASPER_GENERATE_UUID` is set — which the stock image build does and a chroot rebuild does not. Without them init falls back to `BOOT=local`, `run-init` has no root to switch to, and PID 1 dies with `Attempted to kill init!` (issue #21). `build.sh` injects both before repacking the archive. Two shortcuts do **not** work and are documented in `build.sh`: appending a cpio segment (the kernel reads it as another archive and fails with `invalid magic at start of compressed archive`), and `cpio -id` on the whole archive (it stops at the first `TRAILER!!!` and unpacks only the leading microcode segment).
+
+- The default wallpaper is not one setting. `edit-wallpaper/set-default-wallpaper.sh` rewrites all three places Plasma reads it from: the look-and-feel `[Wallpaper] Image=` entry, the layout script that writes the new account's `appletsrc` (Kubuntu's themes hard-code the Kubuntu edition there, with a day/night marker), and the lock screen's `[Greeter][Wallpaper]` section. Only entries naming a stock Kubuntu wallpaper or the chosen one are touched, so Breeze's own `Next` default stays. `remove-kubuntu-wallpapers.sh` then deletes the three `kubuntu-wallpapers` kpackages and installs a dpkg **path filter** (`/etc/dpkg/dpkg.cfg.d/zhento-wallpapers`) — deleting the directories alone would let the next `kubuntu-wallpapers` upgrade or reinstall unpack them again, and the package cannot be purged because `kubuntu-settings-desktop` depends on it. `WALLPAPER=<name>` picks a different installed kpackage.
 
 Each step is skipped with a warning, not a failure, when its inputs are absent — so an image without KDE still builds.
 

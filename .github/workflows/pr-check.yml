@@ -101,6 +101,11 @@ jobs:
       - name: Login shell tests
         run: bash tests/terminal.test.sh
 
+      - name: Default wallpaper tests
+        # The wallpaper steps only edit config files and remove kpackage
+        # directories, so they run here rather than with the artwork tests.
+        run: bash tests/edit-wallpaper.test.sh
+
       - name: Boot splash payload tests
         run: bash tests/plymouth-payload.test.sh
 

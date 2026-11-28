@@ -19,6 +19,7 @@
 #   KEEP_WORK      1 to keep intermediate files for debugging
 #   SQUASHFS_COMP  Squashfs compression algorithm (default inherited from original layer, e.g. xz; zstd is much faster)
 #   SQUASHFS_BLOCK Squashfs block size (default inherited from original layer, usually 131072)
+#   WALLPAPER      Installed wallpaper kpackage set as the default (default Patak)
 #
 # Note: some Ubuntu 26.04 desktop ISOs use layered squashfs (described in casper/install-sources.yaml),
 # while Kubuntu 26.04.1 uses a single casper/filesystem.squashfs. Both layouts are supported:
@@ -39,6 +40,7 @@ PATCH_LAYERS=${PATCH_LAYERS:-auto}
 KEEP_WORK=${KEEP_WORK:-0}
 SQUASHFS_COMP=${SQUASHFS_COMP:-}
 SQUASHFS_BLOCK=${SQUASHFS_BLOCK:-}
+WALLPAPER=${WALLPAPER:-Patak}
 
 ISO_NAME="kzhento-${VERSION}-amd64.iso"
 ISO_DIR="$WORK_DIR/iso"
@@ -107,6 +109,7 @@ preflight_checks() {
         edit-logo.sh/edit-pixmaps.sh edit-logo.sh/edit-icons.sh \
         edit-notification/edit-notification.sh \
         edit-notification/edit-welcome.sh edit-notification/plasma-welcome/01-Kzhento.qml \
+        edit-wallpaper/set-default-wallpaper.sh edit-wallpaper/remove-kubuntu-wallpapers.sh \
         edit-os-release/edit-about-system.sh edit-os-release/kcm-about-distrorc; do
         if [ ! -f "$SELF_DIR/$d" ]; then
             warn "Branding input missing, its step will be skipped: $d"
@@ -704,6 +707,51 @@ apply_welcome_page() {
 }
 
 # ---------------------------------------------------------------------------
+# Wallpaper: make an installed kpackage the default in every place Plasma reads
+# one from (look-and-feel defaults, the layout scripts, the lock screen). The
+# stock Kubuntu wallpapers are removed by the next step, so this has to run
+# first: a default that names a removed wallpaper is a black desktop.
+# ---------------------------------------------------------------------------
+apply_wallpaper_default() {
+    local script="$SELF_DIR/edit-wallpaper/set-default-wallpaper.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-wallpaper/set-default-wallpaper.sh is missing, skipping the default wallpaper"
+        return 0
+    }
+    # wallpaper-* packages are not guaranteed on a minimal tree; without any
+    # kpackage there is nothing to point the default at.
+    if [ ! -d "$ROOT_DIR/usr/share/wallpapers/$WALLPAPER" ]; then
+        warn "Wallpaper $WALLPAPER is not installed in the image, skipping the default wallpaper"
+        return 0
+    fi
+
+    log "Setting $WALLPAPER as the default wallpaper"
+    WALLPAPER="$WALLPAPER" sh "$script" "$ROOT_DIR" ||
+        die "Failed to set the default wallpaper"
+}
+
+# ---------------------------------------------------------------------------
+# Wallpaper: remove the stock Kubuntu kpackages and keep them out with a dpkg
+# path filter, so an upgrade or a reinstall cannot put the artwork back.
+# ---------------------------------------------------------------------------
+apply_wallpaper_removal() {
+    local script="$SELF_DIR/edit-wallpaper/remove-kubuntu-wallpapers.sh"
+
+    [ -f "$script" ] || {
+        warn "edit-wallpaper/remove-kubuntu-wallpapers.sh is missing, skipping the stock wallpapers"
+        return 0
+    }
+    [ -d "$ROOT_DIR/usr/share/wallpapers" ] || {
+        warn "No /usr/share/wallpapers in the image, skipping the stock wallpapers"
+        return 0
+    }
+
+    log "Removing the stock Kubuntu wallpapers"
+    sh "$script" "$ROOT_DIR" || die "Failed to remove the stock Kubuntu wallpapers"
+}
+
+# ---------------------------------------------------------------------------
 # About this System: kcm-about-distrorc for kcm_about-distro
 # ---------------------------------------------------------------------------
 apply_about_system() {
@@ -830,6 +878,8 @@ patch_layer() {
     apply_plymouth
     apply_notification
     apply_welcome_page
+    apply_wallpaper_default
+    apply_wallpaper_removal
     apply_useradd_defaults
     apply_terminal
 
