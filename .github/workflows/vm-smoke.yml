@@ -72,7 +72,7 @@ jobs:
               exit 0
             }
             gh release download "$tag" --dir "$dest" \
-              --pattern 'zhenTo-*.zip' --pattern 'zhenTo-*.z0*'
+              --pattern 'kzhento-*.zip' --pattern 'kzhento-*.z0*'
             unzip -o "$dest"/*.zip -d "$dest"
           fi
 
