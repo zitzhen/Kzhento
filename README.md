@@ -8,7 +8,7 @@ Kzhento is a customized Linux distribution based on **Kubuntu 26.04.1 LTS "Resol
 
 The whole image is assembled by shell scripts â€” the old dependency on Cubic has been removed. Everything from unpacking the official ISO and patching it inside a `chroot`, to repacking a bootable image, is reproducible from this repository.
 
-> **Note on the inherited code:** the scripts themselves have not been modified. Defaults and runtime strings inside them (`BASE_ISO`, volume label, output filename, `/etc/os-release`, GRUB menu) still refer to ZhenTo/Ubuntu. Pass your own Kubuntu ISO through `BASE_ISO` when building.
+> **Note on the inherited code:** the scripts themselves have not been modified. Defaults and runtime strings inside them (`BASE_ISO`, `/etc/os-release`, GRUB menu) still refer to ZhenTo/Ubuntu. Pass your own Kubuntu ISO through `BASE_ISO` when building.
 
 | | |
 |---|---|
@@ -113,7 +113,7 @@ sudo ./build.sh --check
 sudo BASE_ISO=/path/to/kubuntu-26.04.1-desktop-amd64.iso ./build.sh
 ```
 
-On success the ISO and its `.md5` file are produced under `out/`; the inherited script still names them `zhenTo-<VERSION>-amd64.iso` and `zhenTo-<VERSION>-amd64.md5`. Intermediate files under `work/` are removed unless `KEEP_WORK=1` is set.
+On success the ISO and its `.md5` file are produced under `out/` as `kzhento-<VERSION>-amd64.iso` and `kzhento-<VERSION>-amd64.md5`. Intermediate files under `work/` are removed unless `KEEP_WORK=1` is set.
 
 > **Note:** the default `BASE_ISO` points to the maintainer's local Ubuntu ISO path (inherited from ZhenTo). Always pass your own Kubuntu ISO via `BASE_ISO=...` or edit the default in `build.sh`.
 
@@ -131,7 +131,7 @@ On success the ISO and its `.md5` file are produced under `out/`; the inherited 
 |---|---|---|
 | `BASE_ISO` | `/home/oliver/iso/ubuntu-26.04.1-desktop-amd64.iso` | Source Kubuntu desktop ISO (inherited default; override it) |
 | `VERSION` | `0.1.0` | Product version (embedded in the ISO name and `os-release`) |
-| `VOLID` | `ZhenTo <VERSION> amd64` | ISO volume label (inherited; override with `VOLID="Kzhento <VERSION> amd64"`, truncated to 32 characters) |
+| `VOLID` | `Kzhento <VERSION> amd64` | ISO volume label (truncated to 32 characters) |
 | `WORK_DIR` | `<repo>/work` | Intermediate build directory |
 | `OUT_DIR` | `<repo>/out` | Output directory for the ISO |
 | `PATCH_LAYERS` | `auto` | `auto` or a space-separated list of casper layer files to patch |
@@ -187,7 +187,7 @@ Each step is skipped with a warning, not a failure, when its inputs are absent â
 1. **Write to a USB drive** (replace `/dev/sdX` with your actual device â€” this erases it):
 
    ```bash
-   sudo dd if=zhenTo-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+   sudo dd if=kzhento-<VERSION>-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
    ```
 
 2. **Boot** the target machine in UEFI mode and select the USB drive. Legacy BIOS boot is not supported.
@@ -195,11 +195,11 @@ Each step is skipped with a warning, not a failure, when its inputs are absent â
 
 ## Downloading a Release
 
-GitHub Release assets are split into 1800 MB compressed volumes to stay below the 2 GB per-file limit. Reassemble and verify them like this (the inherited file naming is retained):
+GitHub Release assets are split into 1800 MB compressed volumes to stay below the 2 GB per-file limit. Reassemble and verify them like this:
 
 ```bash
-unzip zhenTo-<VERSION>-amd64.iso.zip
-sha256sum -c zhenTo-<VERSION>-amd64.iso.sha256
+unzip kzhento-<VERSION>-amd64.iso.zip
+sha256sum -c kzhento-<VERSION>-amd64.iso.sha256
 ```
 
 Helper scripts are provided to download **all** assets of a release (including drafts) with the GitHub CLI:
