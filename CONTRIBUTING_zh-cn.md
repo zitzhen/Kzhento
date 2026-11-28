@@ -105,7 +105,7 @@ git config core.hooksPath .githooks   # 提交时自动添加 Signed-off-by
 | `edit-os-release/os-release` | `VERSION_ID` |
 | `.github/workflows/build-iso.yml` | `inputs.version.default` |
 
-`tests/check-version-consistency.sh` 会校验这些值。修改版本号时请同时更新三处，并核对 ISO 与 MD5 产物命名（`zhenTo-<VERSION>-amd64.iso` / `.md5`）。若 `VERSION` 与 `os-release` 的 `VERSION_ID` 不一致，`build.sh` 会直接拒绝运行。
+`tests/check-version-consistency.sh` 会校验这些值。修改版本号时请同时更新三处，并核对 ISO 与 MD5 产物命名（`kzhento-<VERSION>-amd64.iso` / `.md5`）。若 `VERSION` 与 `os-release` 的 `VERSION_ID` 不一致，`build.sh` 会直接拒绝运行。
 
 ## 测试与检查
 
