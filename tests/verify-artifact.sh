@@ -338,6 +338,53 @@ unsquashfs -cat "$TMP/$layer" /usr/share/plasma/plasma-welcome/extra-pages/kzhen
     die "The Welcome Center wordmark is not a PNG"
 ok "Welcome Center wordmark present"
 
+# Wallpapers: the stock Kubuntu kpackages are removed and kept out by a dpkg
+# path filter, and the default names a wallpaper that is actually installed.
+# A removed default is a black desktop with no error, and it is invisible to
+# every other check here.
+for w in Kubuntu KubuntuBlack KubuntuLight; do
+    # -cat follows symlinks and fails on a directory, so this asks "is the
+    # kpackage still unpacked" without failing on a listing of a missing path.
+    if unsquashfs -cat "$TMP/$layer" "/usr/share/wallpapers/$w/metadata.json" >/dev/null 2>&1; then
+        die "The stock Kubuntu wallpaper is still in the image: /usr/share/wallpapers/$w"
+    fi
+done
+unsquashfs -cat "$TMP/$layer" /etc/dpkg/dpkg.cfg.d/zhento-wallpapers >"$TMP/wallpaper-filter" 2>/dev/null ||
+    die "Missing in image: /etc/dpkg/dpkg.cfg.d/zhento-wallpapers"
+for w in Kubuntu KubuntuBlack KubuntuLight; do
+    grep -qx "path-exclude=/usr/share/wallpapers/$w/\*" "$TMP/wallpaper-filter" ||
+        die "The dpkg path filter does not exclude /usr/share/wallpapers/$w; a package upgrade would put it back"
+done
+ok "the stock Kubuntu wallpapers are removed and excluded from dpkg unpacks"
+
+# The default has to name a kpackage that exists: the filter above deliberately
+# leaves any other wallpaper alone, so the default must not be one of the three.
+lf_default=$(unsquashfs -cat "$TMP/$layer" \
+    /usr/share/plasma/look-and-feel/org.kubuntu.desktop/contents/defaults 2>/dev/null ||
+    true)
+default_image=$(printf '%s\n' "$lf_default" | sed -n 's/^Image=//p')
+[ -n "$default_image" ] ||
+    die "The Kubuntu look-and-feel defaults has no [Wallpaper] Image= entry"
+case "$default_image" in
+Kubuntu | KubuntuBlack | KubuntuLight)
+    die "The default wallpaper is still the removed stock wallpaper: $default_image"
+    ;;
+esac
+unsquashfs -cat "$TMP/$layer" "/usr/share/wallpapers/$default_image/metadata.json" >/dev/null 2>&1 ||
+    die "The default wallpaper is not installed in the image: /usr/share/wallpapers/$default_image"
+ok "the default wallpaper is an installed kpackage ($default_image)"
+
+lock=$(unsquashfs -cat "$TMP/$layer" \
+    /usr/share/kubuntu-default-settings/kf5-settings/kscreenlockerrc 2>/dev/null || true)
+[ -n "$lock" ] || die "Missing in image: /usr/share/kubuntu-default-settings/kf5-settings/kscreenlockerrc"
+lock_image=$(printf '%s\n' "$lock" | sed -n 's#^Image=file:///usr/share/wallpapers/##p')
+case "${lock_image%%/*}" in
+Kubuntu | KubuntuBlack | KubuntuLight)
+    die "The lock screen still draws the removed stock wallpaper: $lock_image"
+    ;;
+esac
+ok "the lock screen does not name a removed wallpaper"
+
 # The stock page is kept for rollback, and *only* as the backup: a second *.qml
 # in that directory is enumerated by plasma-welcome as one more page.
 if unsquashfs -cat "$TMP/$layer" \
